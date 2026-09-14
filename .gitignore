@@ -1,0 +1,18 @@
+# ── 构建产物 ──────────────────────────────────────────────
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+build/
+dist/
+.verify/
+.vs/
+
+# ── IDE / 工具 ────────────────────────────────────────────
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ── 运行时数据 ────────────────────────────────────────────
+# %LOCALAPPDATA% 不可写时程序会回退到程序目录下的 GameGalleryData\（绿色版模式）
+GameGalleryData/

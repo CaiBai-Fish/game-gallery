@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="GameGallery.Views.PhotoViewer"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    IsTabStop="True"
+    KeyDown="OnViewerKeyDown"
+    mc:Ignorable="d">
+
+    <Grid x:Name="ViewerRoot" Background="Transparent">
+        <Grid.ContextFlyout>
+            <MenuFlyout>
+                <MenuFlyoutItem Click="OnContextRevealClick" Text="在资源管理器中显示">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE8B7;" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Click="OnContextCopyClick" Text="复制到剪贴板">
+                    <MenuFlyoutItem.Icon>
+                        <FontIcon Glyph="&#xE8C8;" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuFlyout>
+        </Grid.ContextFlyout>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 背景单独一层：它的透明度跟着放大/缩小动画一起变化，
+             而不是一打开就固定成半透明压在图片后面。 -->
+        <Rectangle
+            x:Name="Backdrop"
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            Fill="#F0121214"
+            IsHitTestVisible="False" />
+
+        <!-- 顶部信息与操作条 -->
+        <Grid
+            x:Name="TopBar"
+            Grid.Row="0"
+            Padding="12,10"
+            ColumnSpacing="8"
+            Background="#66000000">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button
+                x:Name="BackButton"
+                Grid.Column="0"
+                Width="40" Height="40" Padding="0"
+                Background="Transparent" BorderThickness="0" Foreground="White"
+                CornerRadius="20"
+                AutomationProperties.Name="返回图库"
+                Click="OnCloseClick"
+                ToolTipService.ToolTip="返回图库 (Esc)">
+                <FontIcon Glyph="&#xE72B;" FontSize="16" />
+            </Button>
+
+            <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center">
+                <TextBlock
+                    x:Name="FileNameText"
+                    Foreground="White"
+                    FontWeight="SemiBold"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    x:Name="MetaText"
+                    Foreground="#B3FFFFFF"
+                    FontSize="12"
+                    TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <Button
+                x:Name="FavoriteButton"
+                Grid.Column="2"
+                Width="40" Height="40" Padding="0"
+                Background="Transparent" BorderThickness="0" Foreground="White"
+                CornerRadius="20"
+                AutomationProperties.Name="收藏"
+                Click="OnFavoriteClick"
+                ToolTipService.ToolTip="收藏 / 取消收藏 (F)">
+                <FontIcon x:Name="FavoriteIcon" Glyph="&#xE734;" FontSize="16" />
+            </Button>
+
+            <Button
+                Grid.Column="3"
+                Width="40" Height="40" Padding="0"
+                Background="Transparent" BorderThickness="0" Foreground="White"
+                CornerRadius="20"
+                AutomationProperties.Name="复制到剪贴板"
+                Click="OnCopyClick"
+                ToolTipService.ToolTip="复制到剪贴板 (Ctrl+C)">
+                <FontIcon Glyph="&#xE8C8;" FontSize="16" />
+            </Button>
+
+            <Button
+                Grid.Column="4"
+                Width="40" Height="40" Padding="0"
+                Background="Transparent" BorderThickness="0" Foreground="White"
+                CornerRadius="20"
+                AutomationProperties.Name="在资源管理器中显示"
+                Click="OnRevealClick"
+                ToolTipService.ToolTip="在资源管理器中显示 (O)">
+                <FontIcon Glyph="&#xE8B7;" FontSize="16" />
+            </Button>
+
+            <Button
+                Grid.Column="5"
+                Width="40" Height="40" Padding="0"
+                Background="Transparent" BorderThickness="0" Foreground="White"
+                CornerRadius="20"
+                AutomationProperties.Name="删除到回收站"
+                Click="OnDeleteClick"
+                ToolTipService.ToolTip="删除到回收站 (Delete)">
+                <FontIcon Glyph="&#xE74D;" FontSize="16" />
+            </Button>
+        </Grid>
+
+        <!-- 图像视口 -->
+        <Grid Grid.Row="1">
+            <Canvas
+                x:Name="Viewport"
+                AutomationProperties.AutomationId="Viewport"
+                AllowFocusOnInteraction="False"
+                Background="Transparent"
+                DoubleTapped="OnDoubleTapped"
+                PointerCaptureLost="OnPanEnd"
+                PointerMoved="OnPanMove"
+                PointerPressed="OnPanStart"
+                PointerReleased="OnPanEnd"
+                PointerWheelChanged="OnWheel"
+                SizeChanged="OnViewportSizeChanged">
+                <!-- 打开时的入场缩放动画用独立的变换，避免和缩放/平移的 ImageTransform 打架。
+                     RenderTransformOrigin 固定为中心，这样动画不需要先知道视口尺寸，
+                     也就不需要在布局完成前反复重试（那会饿死布局 tick 导致界面卡死）。 -->
+                <Canvas.RenderTransformOrigin>0.5,0.5</Canvas.RenderTransformOrigin>
+                <Canvas.RenderTransform>
+                    <CompositeTransform x:Name="StageTransform" />
+                </Canvas.RenderTransform>
+                <Image
+                    x:Name="ViewerImage"
+                    AutomationProperties.AutomationId="ViewerImage"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Stretch="Fill" />
+            </Canvas>
+
+            <!-- 大图解码期间先显示已缓存的缩略图，避免切换时整屏空白 -->
+            <Image
+                x:Name="PlaceholderImage"
+                MaxWidth="520" MaxHeight="520"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Opacity="0.75"
+                Stretch="Uniform"
+                Visibility="Collapsed" />
+
+            <ProgressRing
+                x:Name="LoadingRing"
+                Width="52" Height="52"
+                IsActive="False"
+                Foreground="White" />
+
+            <TextBlock
+                x:Name="ErrorText"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Foreground="#CCFFFFFF"
+                TextAlignment="Center"
+                Visibility="Collapsed" />
+
+            <Button
+                x:Name="PrevButton"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Margin="14,0,0,0"
+                Width="44" Height="44" Padding="0"
+                Background="#59000000" BorderThickness="0" Foreground="White"
+                CornerRadius="22"
+                AutomationProperties.Name="上一张"
+                Click="OnPrevClick"
+                ToolTipService.ToolTip="上一张 (← / PageUp)">
+                <FontIcon Glyph="&#xE76B;" FontSize="16" />
+            </Button>
+
+            <Button
+                x:Name="NextButton"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Margin="0,0,14,0"
+                Width="44" Height="44" Padding="0"
+                Background="#59000000" BorderThickness="0" Foreground="White"
+                CornerRadius="22"
+                AutomationProperties.Name="下一张"
+                Click="OnNextClick"
+                ToolTipService.ToolTip="下一张 (→ / PageDown)">
+                <FontIcon Glyph="&#xE76C;" FontSize="16" />
+            </Button>
+
+            <Border
+                x:Name="ZoomBadge"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,18,18"
+                Padding="10,4"
+                Background="#73000000"
+                CornerRadius="12">
+                <TextBlock x:Name="ZoomText" Foreground="White" FontSize="12" Text="100%" />
+            </Border>
+
+            <TextBlock
+                x:Name="IndexText"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Margin="18,0,0,18"
+                Foreground="#B3FFFFFF"
+                FontSize="12" />
+        </Grid>
+    </Grid>
+</UserControl>

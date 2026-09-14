@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="GameGallery.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- 缩略图单元格：去掉默认内边距，让图块铺满整个格子 -->
+            <Style x:Key="PhotoTileContainerStyle" TargetType="GridViewItem">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="MinHeight" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            </Style>
+
+            <!-- 左侧导航项：加高一点，图标和计数更好点 -->
+            <Style x:Key="TallNavItemStyle" TargetType="NavigationViewItem">
+                <Setter Property="MinHeight" Value="60" />
+                <Setter Property="Margin" Value="0,2,0,2" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
+            <!-- 工具栏上的小图标按钮 -->
+            <Style x:Key="ToolIconButtonStyle" TargetType="Button">
+                <Setter Property="Width" Value="36" />
+                <Setter Property="Height" Value="36" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="CornerRadius" Value="18" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
+

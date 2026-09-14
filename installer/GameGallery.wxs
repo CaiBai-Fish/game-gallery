@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    游戏截图图库 的 MSI 安装包定义（WiX 3）。
+
+    刻意做成 per-user：程序装到 %LOCALAPPDATA%\Programs\GameGallery，
+    安装时不需要管理员权限，也不会弹 UAC；卸载信息同样注册在当前用户下，
+    会正常出现在「设置 → 应用」里。
+
+    程序文件清单由 heat.exe 自动采集到 AppFiles.wxs（组件组 AppFiles），
+    这里只负责目录结构、快捷方式、图标和向导界面。
+
+    构建见 scripts\package-msi.ps1。
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+  <Product
+      Id="*"
+      Name="游戏截图图库"
+      Language="2052"
+      Codepage="936"
+      Version="0.1.0"
+      Manufacturer="GameGallery"
+      UpgradeCode="2089C61C-D6CF-449D-B08F-327FF17BF99F">
+
+    <Package
+        Id="*"
+        Description="快速浏览原神 / 崩坏：星穹铁道 / 绝区零 的游戏截图"
+        Comments="GameGallery"
+        Manufacturer="GameGallery"
+        InstallerVersion="500"
+        Compressed="yes"
+        InstallScope="perUser"
+        Languages="2052"
+        SummaryCodepage="936" />
+
+    <!-- 升级时先卸旧版本 -->
+    <MajorUpgrade DowngradeErrorMessage="已经安装了更新版本的 [ProductName]，请先卸载它。" />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- 控制面板里显示应用图标 -->
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPCOMMENTS" Value="游戏截图图库 —— 原神 / 崩坏：星穹铁道 / 绝区零 截图浏览器" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="立即启动 游戏截图图库" />
+
+    <Icon Id="AppIcon" SourceFile="GameGallery.ico" />
+
+    <!-- ── 目录结构 ── -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="ProgramsFolder" Name="Programs">
+          <Directory Id="INSTALLFOLDER" Name="GameGallery" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="AppMenuFolder" Name="游戏截图图库" />
+      </Directory>
+      <Directory Id="DesktopFolder" />
+    </Directory>
+
+    <!-- ── 开始菜单快捷方式 ── -->
+    <DirectoryRef Id="AppMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="54CB7F32-A14A-4A4D-8173-B486EB298FEB" Win64="no">
+        <Shortcut
+            Id="StartMenuLnk"
+            Name="游戏截图图库"
+            Description="快速浏览游戏截图"
+            Target="[INSTALLFOLDER]GameGallery.exe"
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="AppIcon" />
+        <RemoveFolder Id="RemoveAppMenuFolder" On="uninstall" />
+        <RegistryValue
+            Root="HKCU"
+            Key="Software\GameGallery"
+            Name="StartMenuShortcut"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- ── 桌面快捷方式 ── -->
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="227FB2C4-9D44-49A0-BFB1-7F66725958D8" Win64="no">
+        <Shortcut
+            Id="DesktopLnk"
+            Name="游戏截图图库"
+            Description="快速浏览游戏截图"
+            Target="[INSTALLFOLDER]GameGallery.exe"
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="AppIcon" />
+        <RegistryValue
+            Root="HKCU"
+            Key="Software\GameGallery"
+            Name="DesktopShortcut"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Main" Title="游戏截图图库" Level="1">
+      <!-- 程序文件：由 heat.exe 采集生成 -->
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+    <!-- ── 向导界面 ── -->
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+    <!-- 完成页上的“立即启动”复选框 -->
+    <Property Id="WixShellExecTarget" Value="[#GameGallery.exe]" />
+    <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
+
+    <UI>
+      <UIRef Id="WixUI_InstallDir" />
+      <!-- WiX 3 里 Publish 的条件是元素文本 -->
+      <Publish
+          Dialog="ExitDialog"
+          Control="Finish"
+          Event="DoAction"
+          Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+    </UI>
+
+  </Product>
+</Wix>

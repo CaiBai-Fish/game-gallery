@@ -1,0 +1,11 @@
+# 统一换行符：Windows 端的脚本与 C# 源码用 CRLF，避免 .cmd 在 cmd.exe 下出问题
+* text=auto eol=crlf
+
+*.ps1   text eol=crlf
+*.cmd   text eol=crlf
+*.wxs   text eol=crlf
+*.wxl   text eol=crlf
+
+# 二进制资源不做换行转换
+*.ico   binary
+*.png   binary

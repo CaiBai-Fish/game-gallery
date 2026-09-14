@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    极简本地化文件，只为把 MSI 数据库的代码页设成 936（简体中文），
+    否则包含中文的产品名 / 快捷方式名会因为默认代码页 1252 而链接失败。
+
+    向导界面的按钮等文本不在这里定义：light 找不到对应文化的字符串时
+    会自动回退到 WixUIExtension 内置的默认语言。
+-->
+<WixLocalization
+    Culture="zh-CN"
+    Codepage="936"
+    xmlns="http://schemas.microsoft.com/wix/2006/localization">
+</WixLocalization>
