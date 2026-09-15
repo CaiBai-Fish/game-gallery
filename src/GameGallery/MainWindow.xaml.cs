@@ -1363,20 +1363,23 @@ public sealed partial class MainWindow : Window
     private void OnInstallUpdateClick(object sender, RoutedEventArgs e) => _ = InstallUpdateAsync();
 
     /// <summary>
-    /// 下载 → 核对 hashes 分支里的 SHA-256 → 通过才运行安装程序，然后退出本程序。
-    /// 哈希不匹配时安装包会被删掉并且不安装（UpdateService 里做的）。
+    /// 下载官方安装程序 → 核对 hashes 分支里的 SHA-256 → 交给独立脚本静默安装，本程序退出。
+    ///
+    /// 点这个按钮本身就是确认动作，所以不再弹确认框；只有在程序目录不可写（装了也覆盖不了）
+    /// 时才退回"手动下载"。哈希不匹配时安装包会被删掉并且不安装（UpdateService 里做的）。
     /// </summary>
     private async Task InstallUpdateAsync()
     {
         var version = _pendingVersion;
         if (version is null || _checkingUpdate) return;
 
-        var confirmed = await ConfirmAsync(
-            $"将下载 {version} 的安装包（约 52 MB），核对文件哈希通过后运行安装程序。\n\n" +
-            "安装过程中本程序会退出，安装完成后可以从开始菜单重新打开。\n\n是否继续？",
-            "下载并安装");
-
-        if (!confirmed) return;
+        if (!UpdateService.CanWriteProgramDirectory())
+        {
+            UpdateStatusText.Text =
+                $"当前程序目录不可写（{AppContext.BaseDirectory}），装了也覆盖不了，请用「打开发布页」手动下载 {version}。";
+            OpenReleaseButton.Visibility = Visibility.Visible;
+            return;
+        }
 
         _checkingUpdate = true;
         InstallUpdateButton.IsEnabled = false;
@@ -1393,15 +1396,18 @@ public sealed partial class MainWindow : Window
 
             var path = await UpdateService.DownloadInstallerAsync(version, _pendingTag, progress);
 
-            UpdateStatusText.Text = $"哈希校验通过，正在启动安装程序…";
+            var installed = UpdateService.GetInstalledLocation();
+            UpdateStatusText.Text = installed is null
+                ? $"校验通过，正在安装回原目录（{AppContext.BaseDirectory}）…"
+                : $"校验通过，正在安装到 {installed}…";
 
-            if (!UpdateService.RunInstaller(path))
+            if (!UpdateService.StartInstallerScript(path))
             {
-                UpdateStatusText.Text = $"没能启动安装程序，安装包已经下载到：{path}";
+                UpdateStatusText.Text = $"没能启动安装脚本，安装包已下载到：{path}";
                 return;
             }
 
-            App.Log($"更新：已启动 {path} 的安装程序，本程序退出");
+            App.Log($"更新：{version} 交给独立脚本安装，本程序退出");
             Close();
         }
         catch (UpdateVerificationException ex)

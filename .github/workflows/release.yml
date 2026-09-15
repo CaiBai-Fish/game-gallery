@@ -84,6 +84,19 @@ jobs:
             Write-Host "  $tool"
           }
 
+      - name: 准备 Inno Setup 6（EXE 安装程序用）
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+
+          $iscc = @(
+            'C:\Program Files (x86)\Inno Setup 6\ISCC.exe',
+            (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
+          ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+
+          if (-not $iscc) { throw '找不到 ISCC.exe（Inno Setup 6 没装上？）' }
+          Write-Host "ISCC: $iscc"
+
       - name: 构建 MSI 安装包
         shell: pwsh
         run: |
@@ -93,6 +106,12 @@ jobs:
         shell: pwsh
         run: |
           .\scripts\package.ps1 -Version '${{ steps.ver.outputs.version }}'
+
+      - name: 构建 EXE 安装程序（Inno Setup）
+        shell: pwsh
+        run: |
+          # 复用上一步已经发布好的目录，不重复 publish
+          .\scripts\package-setup.ps1 -Version '${{ steps.ver.outputs.version }}' -SkipBuild
 
       - name: 列出产物
         shell: pwsh
@@ -129,7 +148,12 @@ jobs:
           $ErrorActionPreference = 'Continue'
 
           $version = '${{ steps.ver.outputs.version }}'
-          $files = @("dist/GameGallery-$version.msi", "dist/GameGallery-$version-portable.exe")
+          # 安装程序必须在清单里：更新程序下载的就是它，没有哈希就没法校验
+          $files = @(
+            "dist/GameGallery-$version-setup.exe",
+            "dist/GameGallery-$version.msi",
+            "dist/GameGallery-$version-portable.exe"
+          )
 
           $lines = foreach ($file in $files) {
             if (-not (Test-Path -LiteralPath $file)) { throw "找不到 $file" }
@@ -166,6 +190,7 @@ jobs:
           path: |
             dist/*.msi
             dist/*-portable.exe
+            dist/*-setup.exe
           if-no-files-found: error
 
       - name: 创建 Release 并附上安装包
@@ -175,6 +200,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create '${{ github.ref_name }}' `
+            'dist/GameGallery-${{ steps.ver.outputs.version }}-setup.exe' `
             'dist/GameGallery-${{ steps.ver.outputs.version }}.msi' `
             'dist/GameGallery-${{ steps.ver.outputs.version }}-portable.exe' `
             --title "游戏截图图库 ${{ steps.ver.outputs.version }}" `

@@ -55,6 +55,15 @@ public static class UpdateService
     public const string Owner = "CaiBai-Fish";
     public const string Repo = "game-gallery";
 
+    /// <summary>产物文件名前缀：<c>&lt;前缀&gt;-&lt;版本&gt;-setup.exe</c> 等。</summary>
+    public const string AppFileNamePrefix = "GameGallery";
+
+    /// <summary>Inno Setup 写的卸载注册表项（per-user）。用它判断当前是安装版还是免安装版。</summary>
+    private const string UninstallKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\GameGallery_is1";
+
+    /// <summary>下载与安装脚本的落地目录。</summary>
+    private static string UpdateDirectory => Path.Combine(Path.GetTempPath(), "GameGallery-update");
+
     public static string RepositoryUrl => $"https://github.com/{Owner}/{Repo}";
 
     public static string ReleasesPageUrl => $"{RepositoryUrl}/releases";
@@ -371,8 +380,8 @@ public static class UpdateService
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// 下载指定版本的 MSI，核对哈希后返回本地路径。
-    /// <paramref name="tag"/> 是 Release 上的原始标签（可能是 v0.1.2），文件名用的是去掉 v 的版本号。
+    /// 下载指定版本的**官方安装程序**（Inno Setup 的 setup.exe），核对哈希后返回本地路径。
+    /// <paramref name="tag"/> 是 Release 上的原始标签（可能是 v1.0.0），文件名用的是去掉 v 的版本号。
     /// 校验失败会删掉文件并抛 <see cref="UpdateVerificationException"/>。
     /// </summary>
     public static async Task<string> DownloadInstallerAsync(
@@ -381,8 +390,8 @@ public static class UpdateService
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var fileName = $"GameGallery-{version}.msi";
-        var directory = Path.Combine(Path.GetTempPath(), "GameGallery-update");
+        var fileName = $"{AppFileNamePrefix}-{version}-setup.exe";
+        var directory = UpdateDirectory;
         Directory.CreateDirectory(directory);
 
         var target = Path.Combine(directory, fileName);
@@ -494,23 +503,114 @@ public static class UpdateService
         return null;
     }
 
-    /// <summary>用 msiexec 安装下载好的 MSI（per-user 安装，不需要管理员）。</summary>
-    public static bool RunInstaller(string msiPath)
+    // ------------------------------------------------------------------
+    // 安装（独立进程里做，本程序先退出）
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// 已安装版本的目录；**免安装形态返回 null**。
+    /// 判据是 Inno Setup 写的卸载注册表项（不要用"目录里有没有 unins000.exe"——
+    /// 免安装目录被解压过安装包时会误判成安装版）。
+    /// </summary>
+    public static string? GetInstalledLocation()
     {
         try
         {
-            var startInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "msiexec.exe",
-                Arguments = $"/i \"{msiPath}\"",
-                UseShellExecute = true,
-            };
-
-            return System.Diagnostics.Process.Start(startInfo) is not null;
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(UninstallKeyPath);
+            var location = key?.GetValue("InstallLocation") as string;
+            return string.IsNullOrWhiteSpace(location) ? null : location.TrimEnd('\\');
         }
         catch (Exception ex)
         {
-            App.Log("更新：启动安装程序失败 — " + ex);
+            App.Log("更新：读取卸载注册表项失败 — " + ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>程序目录当前用户可写吗？不可写就别指望能覆盖安装。</summary>
+    public static bool CanWriteProgramDirectory()
+    {
+        try
+        {
+            var probe = Path.Combine(AppContext.BaseDirectory, ".write-probe");
+            File.WriteAllText(probe, "probe");
+            File.Delete(probe);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 启动更新：本程序退出后，由一个独立脚本静默安装并启动新版本。
+    ///
+    /// * 安装位置随"原形态"：免安装版传 <c>/DIR=&lt;当前目录&gt;</c> 装回原处、保持免安装；
+    ///   安装版不传 <c>/DIR</c>，交给 Inno 用它记录的安装目录（避免同一版本出现两个安装位置）。
+    /// * <c>/SILENT</c> 而不是 <c>/VERYSILENT</c>：显示进度窗口、不弹"是否重启计算机"。
+    /// * 退出码 0 或 3010 才算成功；失败/被取消时启动原版本，安装包留在原处供重试。
+    /// </summary>
+    public static bool StartInstallerScript(string installerPath)
+    {
+        try
+        {
+            var currentExe = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, $"{AppFileNamePrefix}.exe");
+            var baseDirectory = AppContext.BaseDirectory.TrimEnd('\\');
+            var installed = GetInstalledLocation();
+
+            // 免安装 → 装回原处；安装版 → 交给 Inno 记录的目录
+            var dirArgument = installed is null ? $" /DIR=\"{baseDirectory}\"" : string.Empty;
+            var newExe = installed is null
+                ? Path.Combine(baseDirectory, $"{AppFileNamePrefix}.exe")
+                : Path.Combine(installed, $"{AppFileNamePrefix}.exe");
+
+            var scriptPath = Path.Combine(UpdateDirectory, "apply-update.ps1");
+            var script = $$"""
+                $ErrorActionPreference = 'Continue'
+                $targetPid = {{Environment.ProcessId}}
+                $setup = '{{installerPath.Replace("'", "''")}}'
+                $newExe = '{{newExe.Replace("'", "''")}}'
+                $oldExe = '{{currentExe.Replace("'", "''")}}'
+
+                # 等本程序退出（最多 60 秒），否则免安装形态下覆盖不了自己的文件
+                for ($i = 0; $i -lt 120; $i++) {
+                    if (-not (Get-Process -Id $targetPid -ErrorAction SilentlyContinue)) { break }
+                    Start-Sleep -Milliseconds 500
+                }
+
+                $arguments = '/SILENT /NORESTART /CLOSEAPPLICATIONS{{dirArgument}}'
+                $installer = Start-Process -FilePath $setup -ArgumentList $arguments -PassThru -Wait
+
+                if ($installer.ExitCode -eq 0 -or $installer.ExitCode -eq 3010) {
+                    Start-Process -FilePath $newExe
+                } else {
+                    # 安装失败或被取消：把原版本拉起来，安装包留着可以重试
+                    Start-Process -FilePath $oldExe
+                }
+                """;
+
+            Directory.CreateDirectory(UpdateDirectory);
+            File.WriteAllText(scriptPath, script, new System.Text.UTF8Encoding(true));
+
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{scriptPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            var started = System.Diagnostics.Process.Start(startInfo) is not null;
+            App.Log(started
+                ? $"更新：已交给独立脚本安装（{(installed is null ? $"免安装，装回 {baseDirectory}" : $"安装版，装到 {installed}")}）"
+                : "更新：独立安装脚本没能启动");
+
+            return started;
+        }
+        catch (Exception ex)
+        {
+            App.Log("更新：启动安装脚本失败 — " + ex);
             return false;
         }
     }

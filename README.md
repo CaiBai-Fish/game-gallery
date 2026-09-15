@@ -13,33 +13,49 @@
 仓库只包含源码，`dist\` 下的二进制不入库，自己构建即可（见「从源码构建」）：
 
 ```powershell
+.\scripts\package-setup.ps1    # -> dist\GameGallery-1.0.0-setup.exe  （EXE 安装程序，推荐）
 .\scripts\package-msi.ps1      # -> dist\GameGallery-1.0.0.msi
 .\scripts\package.ps1          # -> dist\GameGallery-1.0.0-portable.exe
 ```
 
-拿到 `GameGallery-1.0.0.msi` 后双击安装，也可以静默安装：
+**推荐用 `GameGallery-1.0.0-setup.exe`**：双击按向导装即可，静默安装用
+
+```bat
+GameGallery-1.0.0-setup.exe /SILENT /NORESTART
+```
+
+MSI 也可以（适合企业分发）：
 
 ```bat
 msiexec /i GameGallery-1.0.0.msi /qn
 ```
 
-**不需要管理员权限**——这是 per-user 安装，程序装到 `%LOCALAPPDATA%\Programs\GameGallery`，卸载信息注册在当前用户下，会正常出现在「设置 → 应用 → 已安装的应用」里。安装完会创建开始菜单和桌面快捷方式。
+**都不需要管理员权限**——per-user 安装，程序装到 `%LOCALAPPDATA%\Programs\GameGallery`，卸载信息注册在当前用户下，会正常出现在「设置 → 应用 → 已安装的应用」里。安装完会创建开始菜单和桌面快捷方式（安装程序里可以勾掉桌面图标）。程序目录固定、不带版本号，所以自动更新覆盖的就是这个目录。
+
+这里同样不弹「选择安装语言」：按系统界面语言自动匹配，匹配不到才问；重装时沿用上次的选择。
 
 不想安装的话，用 `GameGallery-1.0.0-portable.exe`：双击运行，免安装、不写注册表。
 
-两种包都**自包含**：已经带上 .NET 8 和 Windows App SDK 运行时，目标机器不需要预装任何东西。
+三种包都**自包含**：已经带上 .NET 8 和 Windows App SDK 运行时，目标机器不需要预装任何东西。
 
 **系统要求**：Windows 10 1809 或更高（x64），Windows 11 全部支持。
 
 ### 卸载
 
-「设置 → 应用 → 已安装的应用」里卸载，或者：
+「设置 → 应用 → 已安装的应用」里卸载即可；命令行的话，安装程序版用
+
+```bat
+"%LOCALAPPDATA%\Programs\GameGallery\unins000.exe" /SILENT
+```
+
+MSI 版用：
 
 ```bat
 msiexec /x GameGallery-1.0.0.msi /qn
 ```
 
-卸载会删掉程序、快捷方式和注册表项，但**保留**缩略图缓存、收藏和设置（在 `%LOCALAPPDATA%\GameGallery`）。想一并清掉就手动删除那个目录。
+卸载会删掉程序、快捷方式和注册表项，但**保留**缩略图缓存、收藏和设置（在 `%LOCALAPPDATA%\GameGallery`）。
+用安装程序卸载时会问一次是否连这些数据一起删（默认保留，静默卸载则直接保留）。
 
 ---
 
@@ -52,7 +68,7 @@ msiexec /x GameGallery-1.0.0.msi /qn
 - 按文件名搜索
 - 截图文件夹有新文件时自动刷新，截完图回到软件就能看到
 - 浅色 / 深色 / 跟随系统主题
-- 设置里有**检查更新**：比对仓库上最新的发布 / 标签（都拿不到时退回 CHANGELOG），发现新版本可以「下载并安装」（核对哈希后运行安装程序）或打开发布页；同时显示当前版本号
+- 设置里有**检查更新**：比对仓库上最新的发布 / 标签（都拿不到时退回 CHANGELOG），发现新版本可以「下载并安装」（核对哈希后由独立脚本静默安装官方安装程序）或打开发布页；同时显示当前版本号
 - **更新日志**：点设置里的「更新日志」会开一个固定大小的浮窗，用 Markdig 解析 `CHANGELOG.md` 并渲染成原生控件（不可拖拽调整、不可最大化，同时只开一个）
 - **单实例**：已经有窗口在运行时，再次启动只会把它切到前台（最小化会先还原），不会开出第二个窗口
 
@@ -189,6 +205,7 @@ startup.log        启动日志与异常堆栈（排查问题用）
 .\scripts\build.ps1                 # 构建 Release（框架依赖，产物小）
 .\scripts\launch.ps1                # 构建并启动
 .\scripts\make-icon.ps1             # 由 installer\AppIcon.png 重新生成 installer\GameGallery.ico
+.\scripts\package-setup.ps1         # 生成 EXE 安装程序 -> dist\GameGallery-1.0.0-setup.exe（Inno Setup 6）
 .\scripts\package-msi.ps1           # 生成 MSI 安装包  -> dist\GameGallery-1.0.0.msi
 .\scripts\package.ps1               # 生成免安装单文件 -> dist\GameGallery-1.0.0-portable.exe
 ```
@@ -248,6 +265,8 @@ src/GameGallery/
 └── Assets/GameGallery.ico       由 installer\GameGallery.ico 复制而来，运行时窗口图标
 
 installer/
+├── GameGallery.iss              Inno Setup 6 的 EXE 安装程序定义（per-user、免 UAC、目录固定）
+├── ChineseSimplified.isl        简体中文语言文件（官方 Inno 不自带，随仓库携带）
 ├── GameGallery.wxs              WiX 3 的 MSI 定义（per-user 安装、开始菜单/桌面快捷方式）
 ├── GameGallery.zh-CN.wxl        中文语言包（Codepage 936）
 ├── AppIcon.png                  应用图标源图
@@ -256,6 +275,7 @@ installer/
 scripts/
 ├── build.ps1 / launch.ps1       构建 / 构建并启动
 ├── make-icon.ps1                由源图生成多尺寸 ICO
+├── package-setup.ps1            Inno Setup 6 编译 EXE 安装程序
 ├── package-msi.ps1              自包含多文件发布 + heat 采集 + candle/light 出 MSI
 ├── package.ps1                  自包含单文件便携版
 └── verify-*.ps1                 基于 UI Automation 的自动化验证（见下）
@@ -342,10 +362,12 @@ HoYoPlay 已经下载好的图标文件，找不到时回退到内置字体图�
 
 为什么不用一条：`api.github.com` 的未认证请求按出口 IP 限流（每小时 60 次），配额用尽时一律 403——实测本机出口 IP 就经常是 0（同一个出口后面可能有别的程序在刷）；`raw.githubusercontent.com` 在部分网络下不可达。第 5 路本身也做了三级回退（raw → github.com 的 blob 页面 → api），blob 页面里内嵌了文件原文，可以当纯文本解析。五路全失败时显示具体原因（403 / 超时 / 不可达），并保留「打开发布页」的手动出口。
 
-**「下载并安装」是带哈希校验的**：从 Release 取 `GameGallery-<版本>.msi`，
+**「下载并安装」是带哈希校验的**：从 Release 取 `GameGallery-<版本>-setup.exe`，
 再取 `hashes` 分支下的 `<版本>.txt`（由发布工作流在推 tag 时自动写入，格式 `<sha256>  <文件名>`），
 两者不一致就**删掉安装包并拒绝安装**；拿不到清单也不会自动装，只给手动下载的出口。
-校验通过后用 `msiexec /i` 运行安装程序，本程序随即退出。
+校验通过后交给一个独立脚本：等本程序退出 → `/SILENT /NORESTART` 静默安装（显示进度但不问"是否重启"）→
+装完启动新版本；安装失败或被取消则启动原版本，安装包留在原处供重试。安装位置按"原形态"决定：
+免安装版传 `/DIR=<当前目录>` 装回原处，安装版不传（判据是卸载注册表项的 `InstallLocation`）。
 
 发布新版本时按顺序做三件事：改 `CHANGELOG.md`（新增一节）→ 改 `src/GameGallery/GameGallery.csproj` 里的 `<Version>` → 打 tag 推上去。
 工作流会自动编译、建 Release、并把产物哈希写进 `hashes` 分支，不需要手工维护。
@@ -359,7 +381,7 @@ HoYoPlay 已经下载好的图标文件，找不到时回退到内置字体图�
 - 定位依赖 HoYoPlay 的状态库文件格式；如果米哈游改了 `gamedata.dat` 的结构，第 1 级会失效，但第 2、3 级和手动添加仍然可用。
 - 收藏按绝对路径保存，移动/重命名文件后失效。
 - 删除只走回收站，没有「彻底删除」选项。
-- 更新程序只处理 MSI：便携版不会自我替换，点「下载并安装」装的是 MSI 版（装到 `%LOCALAPPDATA%\Programs\GameGallery`）。
+- 更新程序装的是**官方安装程序**（`-setup.exe`，Inno Setup 版）：免安装形态会传 `/DIR=<当前目录>` 装回原处保持免安装，安装版则交给安装程序用它记录的目录，避免同一版本出现两个安装位置。程序目录不可写时（例如装到了 `Program Files`）不自动装，只给手动下载出口。
 
 ---
 
