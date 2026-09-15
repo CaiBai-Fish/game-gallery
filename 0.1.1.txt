@@ -1,0 +1,2 @@
+8febb001339db1862805902a2a6c04090889b3c495bff1ea527397af68a2834b  GameGallery-0.1.1-portable.exe
+2e8bf26c29097fd544604529afddb2cf327e0dfa6aa6534cdd6b089aa09a61f8  GameGallery-0.1.1.msi
