@@ -88,7 +88,8 @@ if (-not $SkipBuild -or -not (Test-Path -LiteralPath (Join-Path $publish 'GameGa
     Remove-Item $publish -Recurse -Force -ErrorAction SilentlyContinue
 
     # 注意：这里刻意不加 PublishSingleFile —— MSI 装的就是普通的多文件目录
-    & $msbuild $project -t:Publish -p:Configuration=Release `
+    # -restore：干净检出（CI）里没有 obj\project.assets.json，Publish 会直接失败
+    & $msbuild $project -t:Publish -restore -p:Configuration=Release `
         -p:EnableMsixTooling=true -p:PublishSingleFile=false -p:SelfContained=true `
         -p:WindowsAppSDKSelfContained=true -p:RuntimeIdentifier=win-x64 `
         -p:PublishDir="$publish\" -v:m -nologo

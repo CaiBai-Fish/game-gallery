@@ -57,7 +57,8 @@ if (-not $SkipBuild) {
     Start-Sleep -Milliseconds 800
     Remove-Item $publish -Recurse -Force -ErrorAction SilentlyContinue
 
-    & $msbuild $project -t:Publish -p:Configuration=Release `
+    # -restore：干净检出（CI）里没有 obj\project.assets.json，Publish 会直接失败
+    & $msbuild $project -t:Publish -restore -p:Configuration=Release `
         -p:EnableMsixTooling=true `
         -p:PublishSingleFile=true `
         -p:SelfContained=true `
