@@ -3,7 +3,7 @@
 本文件记录所有值得注意的改动。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [未发布]
+## [0.1.1] - 2026-09-15
 
 ### 新增
 
@@ -45,5 +45,5 @@
 - 单文件便携版：双击运行，免安装、不写注册表
 - 两种包都自包含 .NET 8 与 Windows App SDK 运行时
 
-[未发布]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.0...main
+[0.1.1]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.0...0.1.1
 [0.1.0]: https://github.com/CaiBai-Fish/game-gallery/releases/tag/0.1.0
