@@ -20,7 +20,7 @@ if (-not (Test-Path -LiteralPath $exe)) { throw "还没构建：$exe（先跑 sc
 
 $data = Join-Path $root '.verify\data'
 $test = Join-Path $root '.verify\test'
-if (-not $MsiPath) { $MsiPath = Join-Path $root 'dist\GameGallery-1.0.2.msi' }
+if (-not $MsiPath) { $MsiPath = Join-Path $root 'dist\GameGallery-1.0.3.msi' }
 
 $logDir = Join-Path $root 'build\verify'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null

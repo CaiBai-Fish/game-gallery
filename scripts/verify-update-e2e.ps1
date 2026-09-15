@@ -16,7 +16,8 @@ Add-Type -AssemblyName UIAutomationTypes
 $repo = 'CaiBai-Fish/game-gallery'
 $root = Split-Path -Parent $PSScriptRoot
 $sandbox = Join-Path $env:TEMP "gg-update-e2e-$FromVersion"
-$portable = Join-Path $sandbox "GameGallery-$FromVersion-portable.exe"
+$zip = Join-Path $sandbox "GameGallery-$FromVersion-portable.zip"
+$portable = Join-Path $sandbox 'GameGallery.exe'
 $installedExe = Join-Path $sandbox 'GameGallery.exe'
 
 $AE = [System.Windows.Automation.AutomationElement]
@@ -68,9 +69,10 @@ Get-Process -Name GameGallery -ErrorAction SilentlyContinue | Stop-Process -Forc
 if (Test-Path $sandbox) { Remove-Item $sandbox -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $sandbox | Out-Null
 
-$url = "https://github.com/$repo/releases/download/$FromVersion/GameGallery-$FromVersion-portable.exe"
-Invoke-WebRequest -Uri $url -OutFile $portable -UseBasicParsing
-Write-Host ("  已下载 {0} MB" -f [math]::Round((Get-Item $portable).Length / 1MB, 1))
+$url = "https://github.com/$repo/releases/download/$FromVersion/GameGallery-$FromVersion-portable.zip"
+Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+Expand-Archive -LiteralPath $zip -DestinationPath $sandbox -Force
+Write-Host ("  已下载并解压 {0} MB" -f [math]::Round((Get-Item $zip).Length / 1MB, 1))
 
 Write-Host "`n=== 1. 启动便携版 ==="
 $app = Start-Process -FilePath $portable -PassThru

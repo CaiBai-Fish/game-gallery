@@ -12,7 +12,7 @@ WinUI 3 的具体实现见 `src/GameGallery/Services/UpdateService.cs` 与 `.git
 | # | 契约 | 本项目的取值 |
 | --- | --- | --- |
 | 1 | 版本号来源 | 依次探测：API `releases/latest` → API `tags` → `github.com/releases/latest` 的 302 → `github.com/tags` 页面 → **`CHANGELOG.md` 的第一个 `## [x.y.z]`（保底）** |
-| 2 | tag 与文件名 | tag 为 `x.y.z`（也兼容 `vx.y.z`）；产物固定命名 `<App>-<版本>-setup.exe`（官方安装程序）、`<App>-<版本>.msi`、`<App>-<版本>-portable.exe` |
+| 2 | tag 与文件名 | tag 为 `x.y.z`（也兼容 `vx.y.z`）；产物固定命名 `<App>-<版本>-setup.exe`（官方安装程序）、`<App>-<版本>.msi`、`<App>-<版本>-portable.zip`（免安装） |
 | 3 | 安装包下载地址 | `https://github.com/<owner>/<repo>/releases/download/<原始 tag>/<App>-<版本>-setup.exe`（tag 可能带 `v`，文件名不带） |
 | 4 | 哈希清单 | `hashes` 分支下的 `<版本>.txt`，每行 `<sha256>␣␣<文件名>`（小写十六进制、两个空格分隔）；**必须包含安装程序**，否则没法校验 |
 | 5 | 更新日志格式 | `CHANGELOG.md`，Keep a Changelog：`## [x.y.z] - YYYY-MM-DD`，未发布写 `## [未发布]` |

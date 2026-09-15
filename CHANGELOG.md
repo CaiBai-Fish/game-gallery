@@ -3,6 +3,17 @@
 本文件记录所有值得注意的改动。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.3] - 2026-09-15
+
+### 变更
+
+- **免安装版从「单文件 exe」改成「zip 解压即用」**。单文件形态在本项目上不可靠：本地同一份脚本编出来的
+  `-portable.exe` 能跑，CI 编出来的却在启动时崩（`COMException 0x80040111`「ClassFactory 无法供应请求的类」，
+  崩在 `Microsoft.UI.Xaml.Application.Start`，即 WinRT 激活找不到类）；1.0.2 加的
+  `IncludeAllContentForSelfExtract=true` 只让本地那份恢复，CI 那份依旧崩。
+  现在 zip 用的是与 MSI / EXE 安装程序相同的多文件自包含载荷（已反复验证可运行），体积也从 162 MB 降到 64.7 MB。
+  解压后双击 `GameGallery.exe` 即可，仍然免安装、不写注册表
+- 免安装版与安装程序共用同一个发布目录，CI 少一次全量 publish
 ## [1.0.2] - 2026-09-15
 
 ### 修复
@@ -113,9 +124,10 @@
 - 两种包都自包含 .NET 8 与 Windows App SDK 运行时
 
 [1.0.0]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.2...1.0.0
+[1.0.3]: https://github.com/CaiBai-Fish/game-gallery/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/CaiBai-Fish/game-gallery/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/CaiBai-Fish/game-gallery/compare/1.0.0...1.0.1
-[未发布]: https://github.com/CaiBai-Fish/game-gallery/compare/1.0.2...main
+[未发布]: https://github.com/CaiBai-Fish/game-gallery/compare/1.0.3...main
 [0.1.2]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.0...0.1.1
 [0.1.0]: https://github.com/CaiBai-Fish/game-gallery/releases/tag/0.1.0

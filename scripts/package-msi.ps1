@@ -14,7 +14,7 @@
     没有的话脚本会给出下载地址；解压到 build\tools\wix 即可，不往系统里装任何东西。
 #>
 param(
-    [string]$Version = '1.0.2',
+    [string]$Version = '1.0.3',
     [string]$PublishDir = '',
     [switch]$SkipBuild
 )
