@@ -17,6 +17,11 @@
 - 没有用 WebView2 渲染 Markdown：那会多一个运行时依赖（Evergreen 运行时），而 Markdig 解析 + 手写渲染
   只多一个纯托管包，还能直接跟随应用主题。
 
+### 文档
+
+- 新增 [docs/UPDATE-LOGIC.md](docs/UPDATE-LOGIC.md)：把这套更新逻辑（多路版本探测、`hashes` 分支校验、
+  tag → 编译 → Release 的发布链路）整理成可移植的实现清单，新项目照做即可
+
 ## [0.1.2] - 2026-09-15
 
 ### 新增
