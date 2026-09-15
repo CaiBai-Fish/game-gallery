@@ -1,0 +1,3 @@
+6cb839a60f02297a17983611fbfa381d9f2ee73a01e454da0a3e7fc5db83c772  GameGallery-1.0.2-setup.exe
+4dfe766979330d4bf98636cc3afc05566fba7108916957af7064f37298fa51e4  GameGallery-1.0.2.msi
+c0b0bfd9cebbd2ebb570a7641b605e63876b0698a1e7f51a07d4e076f3ec36ba  GameGallery-1.0.2-portable.exe
