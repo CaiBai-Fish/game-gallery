@@ -52,7 +52,8 @@ msiexec /x GameGallery-0.1.2.msi /qn
 - 按文件名搜索
 - 截图文件夹有新文件时自动刷新，截完图回到软件就能看到
 - 浅色 / 深色 / 跟随系统主题
-- 设置里有**检查更新**：比对仓库上最新的发布 / 标签（都拿不到时退回 CHANGELOG），发现新版本可以「下载并安装」（核对哈希后运行安装程序）或打开发布页；同时显示当前版本号，并有更新日志入口
+- 设置里有**检查更新**：比对仓库上最新的发布 / 标签（都拿不到时退回 CHANGELOG），发现新版本可以「下载并安装」（核对哈希后运行安装程序）或打开发布页；同时显示当前版本号
+- **更新日志**：点设置里的「更新日志」会开一个固定大小的浮窗，用 Markdig 解析 `CHANGELOG.md` 并渲染成原生控件（不可拖拽调整、不可最大化，同时只开一个）
 - **单实例**：已经有窗口在运行时，再次启动只会把它切到前台（最小化会先还原），不会开出第二个窗口
 
 ### 大图查看器
@@ -232,6 +233,8 @@ src/GameGallery/
 ├── App.xaml(.cs)                应用入口 + 全局异常记录 + 共享样式
 ├── MainWindow.xaml(.cs)         左侧导航 / 工具栏 / 缩略图网格 / 状态栏
 ├── Views/PhotoViewer.xaml(.cs)  大图查看器（自实现缩放平移 + 从缩略图展开的过渡）
+├── Views/ChangelogWindow.xaml(.cs)  更新日志浮窗（固定大小、不可调整）
+├── Views/MarkdownRenderer.cs    Markdig 的 AST → WinUI 元素
 ├── Models/                      PhotoItem、GameDefinition、AppSettings
 ├── Services/
 │   ├── GameLocator.cs           四级定位策略
@@ -276,6 +279,7 @@ scripts/
 | 套件 | 覆盖 |
 | --- | --- |
 | `verify-appicon.ps1` | 运行时窗口图标：从源图取特征色，对标题栏和任务栏按钮的实拍区域做像素匹配 |
+| `verify-changelog.ps1` | 更新日志浮窗：能打开、窗口样式里没有 `WS_THICKFRAME`/`WS_MAXIMIZEBOX`（即不可调整大小）、Markdig 渲染出的文本与链接、重复点击只开一个 |
 | `verify-nav.ps1` | 导航栏：收起/展开时文字与图标的显隐、图标实际渲染尺寸（读 UIA 边界矩形）、导航项有没有被重建 |
 | `verify-icons.ps1` | 导航栏游戏图标：真实图标 vs 强制字体图标两次渲染做 A/B 像素比对 |
 | `verify-gallery.ps1` | 显示与交互：适应窗口的像素校验、打开过渡动画、缓动非线性、双击 / Enter、两处右键菜单、卡死回归（CPU 自旋检测） |
@@ -306,6 +310,7 @@ scripts/
 - **卡死回归**读进程累计 CPU 时间：曾经有个无上限的自我重入队导致 UI 线程忙等，卡死时累计烧掉 135 秒 CPU，现在整轮测试的增量在 1 秒以内。
 - **导航栏图标**把「用真实图标」和「强制字体图标」两次渲染的同一区域逐像素比对：4 个游戏标签页各有 44–49 个像素不同，而字体图标的基线是 0。
 - **窗口图标**不能只看 EXE 资源：那只能证明文件图标对。套件从源图取饱和度最高的高频色（`48,134,253`），再对标题栏图标区域和任务栏按钮的实拍区域做匹配（实测 55 / 112 个像素命中），Windows App SDK 的默认图标是纯蓝 `0,0,255`，与特征色相差 142，不会误判。
+- **「不可调整大小的浮窗」不看感觉，读窗口样式**：`GetWindowLong(GWL_STYLE)` 里必须没有 `WS_THICKFRAME`（否则能拖边框）和 `WS_MAXIMIZEBOX`；实测 `style=0x14CA0000`，两项都没有、`WS_MINIMIZEBOX` 保留。
 
 ---
 
@@ -373,3 +378,5 @@ HoYoPlay 已经下载好的图标文件，找不到时回退到内置字体图�
 - **导航栏的收起/展开不重建导航项，只切文字的 `Visibility` 和间距。** 早期实现是重建 `NavigationViewItem`，后果有两个：NavigationView 会重播一次选中指示条动画（看起来就是"刷新了一下"），而展开时能否恢复文字取决于重建那一刻 `DisplayMode` 是否已更新——读到的往往是过期值，于是永久只剩图标。
 - **导航栏的状态同步改由布局驱动。** `PaneOpened` / `PaneClosed` / `DisplayModeChanged` 触发时 `Nav.IsPaneOpen` 还停在旧值，据此判断必然错一拍：实测展开后文字要 ~1.2 秒才出现（这 1.2 秒又恰好等于"补一次"的定时器，很容易误判成动画慢）。现在订阅 `Nav.LayoutUpdated`，布局完成时属性一定已生效，并且只在状态真的不一致时才动手，避免布局自激。
 - **折叠态的栏宽不能想当然。** 展开态的导航项左右各有 16px 内边距（给"图标列 + 文字"预留），折叠栏若继续沿用，34px 的图标只剩 22px 可见。所以显式设 `CompactPaneLength="52"`，图标在两种状态下都是完整的 34×34。
+- **更新日志没有用 WebView2，而是 Markdig 解析 + 手写渲染。** WebView2 能直接显示 Markdown 转出的 HTML，但要多一个 Evergreen 运行时依赖（打包体积和部署都跟着变复杂）。Markdig 是纯托管包，把它的 AST 走一遍生成 WinUI 元素，顺带还能用主题资源，深浅色自动跟随。
+- **「不可调整大小的浮窗」靠 `OverlappedPresenter`，不是设了尺寸就算。** 只 `AppWindow.Resize()` 的话用户照样能拖边框；要 `presenter.IsResizable = false` + `IsMaximizable = false`，验证时读的是窗口样式里的 `WS_THICKFRAME`/`WS_MAXIMIZEBOX` 有没有消失。

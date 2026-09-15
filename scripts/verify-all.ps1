@@ -28,6 +28,7 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $plan = @(
     @{ Name = 'verify-appicon'; Skip = $false; Args = @() },
     @{ Name = 'verify-nav';     Skip = $false; Args = @() },
+    @{ Name = 'verify-changelog'; Skip = $false; Args = @() },
     @{ Name = 'verify-icons';   Skip = $false; Args = @('-Exe', $exe, '-DataDir', $data) },
     @{ Name = 'verify-gallery'; Skip = $false; Args = @('-Exe', $exe, '-DataDir', $data, '-TestDir', $test) },
     @{ Name = 'verify-e2e';     Skip = [bool]$SkipE2e; Args = @('-Exe', $exe, '-DataDir', $data, '-TestDir', $test) },

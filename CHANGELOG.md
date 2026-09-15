@@ -3,6 +3,20 @@
 本文件记录所有值得注意的改动。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [未发布]
+
+### 新增
+
+- 「更新日志」按钮改为打开一个**固定大小的浮窗**，用 [Markdig](https://github.com/xoofx/markdig) 解析
+  `CHANGELOG.md`，再把 AST 渲染成原生 WinUI 元素（标题、有序/无序列表、行内代码、粗体/斜体、链接、引用、代码块、分隔线）。
+  窗口不可拖拽调整、不可最大化，同一时刻只有一个实例
+- 更新日志内容优先从网络获取（raw → github.com 的 blob 页面 → api），失败时退回本地缓存并在状态行标注「离线」
+
+### 说明
+
+- 没有用 WebView2 渲染 Markdown：那会多一个运行时依赖（Evergreen 运行时），而 Markdig 解析 + 手写渲染
+  只多一个纯托管包，还能直接跟随应用主题。
+
 ## [0.1.2] - 2026-09-15
 
 ### 新增
@@ -61,6 +75,7 @@
 - 单文件便携版：双击运行，免安装、不写注册表
 - 两种包都自包含 .NET 8 与 Windows App SDK 运行时
 
+[未发布]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.2...main
 [0.1.2]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.0...0.1.1
 [0.1.0]: https://github.com/CaiBai-Fish/game-gallery/releases/tag/0.1.0

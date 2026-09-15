@@ -226,14 +226,7 @@ public static class UpdateService
     /// </summary>
     private static async Task<string?> TryChangelogVersionAsync(CancellationToken cancellationToken)
     {
-        var sources = new (string Name, Func<CancellationToken, Task<string>> Read)[]
-        {
-            ("CHANGELOG.md @ raw", ct => Http.GetStringAsync($"{RawBase}/main/CHANGELOG.md", ct)),
-            ("CHANGELOG.md @ blob 页面", ct => Http.GetStringAsync($"{RepositoryUrl}/blob/main/CHANGELOG.md", ct)),
-            ("CHANGELOG.md @ api", ct => ReadApiFileAsync("CHANGELOG.md", "main", ct)),
-        };
-
-        foreach (var (name, read) in sources)
+        foreach (var (name, read) in ChangelogSources())
         {
             try
             {
@@ -265,6 +258,112 @@ public static class UpdateService
         // blob 页面里原始内容是 JSON 字符串数组，行首可能带转义/缩进，再宽松匹配一次
         var loose = Regex.Match(text, @"##\s*\[(?<v>\d+\.\d+(?:\.\d+)?)\]");
         return loose.Success ? loose.Groups["v"].Value : null;
+    }
+
+    // ------------------------------------------------------------------
+    // 取回 CHANGELOG 原文（更新日志窗口用）
+    // ------------------------------------------------------------------
+
+    /// <summary>CHANGELOG 的获取结果。<paramref name="Error"/> 在成功时也可能有内容（例如在线源失败但缓存可用）。</summary>
+    public sealed record ChangelogFetch(string? Markdown, bool FromCache, string? Error);
+
+    /// <summary>缓存上一次成功获取的 CHANGELOG，离线时还能看。</summary>
+    private static string ChangelogCachePath => Path.Combine(AppStorage.RootDirectory, "CHANGELOG.md");
+
+    public static async Task<ChangelogFetch> FetchChangelogAsync(CancellationToken cancellationToken = default)
+    {
+        var failures = new List<string>();
+
+        foreach (var (name, read) in ChangelogSources())
+        {
+            try
+            {
+                var text = await read(cancellationToken);
+                if (string.IsNullOrWhiteSpace(text) || ParseFirstVersion(text) is null)
+                {
+                    failures.Add($"{name} — 内容不是 CHANGELOG");
+                    continue;
+                }
+
+                try
+                {
+                    File.WriteAllText(ChangelogCachePath, text);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    App.Log("更新日志：写缓存失败 — " + ex.Message);
+                }
+
+                App.Log($"更新日志：已从「{name}」获取（{text.Length} 字符）");
+                return new ChangelogFetch(text, false, null);
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{name} — {Describe(ex)}");
+            }
+        }
+
+        // 在线源都失败时退回本地缓存
+        try
+        {
+            if (File.Exists(ChangelogCachePath))
+            {
+                var cached = File.ReadAllText(ChangelogCachePath);
+                App.Log("更新日志：在线获取失败，使用本地缓存");
+                return new ChangelogFetch(cached, true, string.Join("；", failures));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+
+        return new ChangelogFetch(null, false, failures.Count == 0 ? "没有可用的数据源" : string.Join("；", failures));
+    }
+
+    /// <summary>按顺序尝试的数据源：名字 + 「取回 Markdown 原文」的函数。</summary>
+    private static (string Name, Func<CancellationToken, Task<string>> Read)[] ChangelogSources() =>
+    [
+        ("raw.githubusercontent.com", ct => Http.GetStringAsync($"{RawBase}/main/CHANGELOG.md", ct)),
+        ("github.com 的 blob 页面", async ct => ExtractBlobMarkdown(await Http.GetStringAsync($"{RepositoryUrl}/blob/main/CHANGELOG.md", ct))),
+        ("api.github.com", ct => ReadApiFileAsync("CHANGELOG.md", "main", ct)),
+    ];
+
+    /// <summary>
+    /// blob 页面里内嵌了文件的原始内容（<c>rawLines</c> 字符串数组），把它取出来。
+    /// 页面是 HTML 不能直接喂给 Markdig；取不到就返回空串，让调用方换数据源。
+    /// </summary>
+    internal static string ExtractBlobMarkdown(string html)
+    {
+        var script = Regex.Match(
+            html,
+            @"<script type=""application/json"" data-target=""react-app\.embeddedData"">(?<json>.*?)</script>",
+            RegexOptions.Singleline);
+
+        if (!script.Success) return string.Empty;
+
+        try
+        {
+            using var document = JsonDocument.Parse(script.Groups["json"].Value);
+
+            if (!document.RootElement.TryGetProperty("payload", out var payload)) return string.Empty;
+            if (!payload.TryGetProperty("codeViewBlobLayoutRoute", out var route)) return string.Empty;
+            if (!route.TryGetProperty("StyledBlob", out var styled)) return string.Empty;
+            if (!styled.TryGetProperty("rawLines", out var lines)) return string.Empty;
+
+            var builder = new System.Text.StringBuilder();
+            foreach (var line in lines.EnumerateArray())
+            {
+                builder.Append(line.GetString());
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+        catch (JsonException ex)
+        {
+            App.Log("更新日志：解析 blob 页面失败 — " + ex.Message);
+            return string.Empty;
+        }
     }
 
     // ------------------------------------------------------------------
