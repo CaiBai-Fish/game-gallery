@@ -99,6 +99,7 @@ jobs:
         run: |
           Get-ChildItem dist | Format-Table Name, @{ n = 'MB'; e = { [math]::Round($_.Length / 1MB, 1) } }
 
+      # 必须在切换 hashes 分支之前：切过去之后工作区里就没有 CHANGELOG.md 了
       - name: 从 CHANGELOG 提取本版本的发布说明
         if: github.ref_type == 'tag'
         shell: pwsh
@@ -118,6 +119,45 @@ jobs:
 
           Set-Content -LiteralPath 'build\release-notes.md' -Value $notes -Encoding UTF8
           Write-Host $notes
+
+      - name: 生成 SHA-256 清单并更新 hashes 分支
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          # 原生命令的非零退出在这里不当异常处理，改为自己判 $LASTEXITCODE
+          $PSNativeCommandUseErrorActionPreference = $false
+          $ErrorActionPreference = 'Continue'
+
+          $version = '${{ steps.ver.outputs.version }}'
+          $files = @("dist/GameGallery-$version.msi", "dist/GameGallery-$version-portable.exe")
+
+          $lines = foreach ($file in $files) {
+            if (-not (Test-Path -LiteralPath $file)) { throw "找不到 $file" }
+            $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            Write-Host "  $hash  $(Split-Path -Leaf $file)"
+            "$hash  $(Split-Path -Leaf $file)"
+          }
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          # hashes 分支只放哈希清单（每个版本一个 <版本>.txt），程序下载安装包后按它核对 SHA-256。
+          # 切过去之后工作区里就没有源码了，所以这一段必须放在提取发布说明之后；
+          # dist\ 是 gitignore 的，切换分支不会影响已经构建好的产物。
+          git fetch origin hashes --quiet 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            git checkout -B hashes --quiet origin/hashes
+          } else {
+            Write-Host 'hashes 分支还不存在，创建孤儿分支'
+            git checkout --orphan hashes --quiet
+          }
+          if ($LASTEXITCODE -ne 0) { throw '切换到 hashes 分支失败' }
+
+          Set-Content -LiteralPath "$version.txt" -Value (($lines -join "`n") + "`n") -Encoding UTF8 -NoNewline
+          git add "$version.txt"
+          git commit --quiet -m "hashes: $version"
+          git push origin hashes
+          if ($LASTEXITCODE -ne 0) { throw '推送 hashes 分支失败' }
 
       - name: 上传构建产物（手动运行时查看用）
         uses: actions/upload-artifact@v4

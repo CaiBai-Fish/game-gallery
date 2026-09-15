@@ -192,6 +192,60 @@ public static class ShellInterop
 
     public static void InitializeWithWindow(object target, Window window)
         => WinRT.Interop.InitializeWithWindow.Initialize(target, GetWindowHandle(window));
+
+    // ------------------------------------------------------------------
+    // 单实例：把已经在跑的实例叫到前台
+    // ------------------------------------------------------------------
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    private const int SW_RESTORE = 9;
+
+    /// <summary>
+    /// 找到已经在运行的实例并把它切到前台（第二个实例启动时调用，然后自己退出）。
+    /// 窗口可能还没创建好，所以带重试；被系统前台锁挡住时返回 false。
+    /// </summary>
+    public static bool ActivateExistingInstance()
+    {
+        var me = Environment.ProcessId;
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            foreach (var process in Process.GetProcessesByName("GameGallery"))
+            {
+                try
+                {
+                    if (process.Id == me) continue;
+
+                    var handle = process.MainWindowHandle;
+                    if (handle == IntPtr.Zero) continue;      // 还在启动中，等下一轮
+
+                    if (IsIconic(handle)) ShowWindow(handle, SW_RESTORE);
+
+                    return SetForegroundWindow(handle);
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or System.ComponentModel.Win32Exception)
+                {
+                    // 进程刚好退出之类，忽略
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+
+            Thread.Sleep(200);
+        }
+
+        return false;
+    }
 }
 
 /// <summary>文件夹选择器（非打包 WinUI 应用需要先绑定窗口句柄）。</summary>

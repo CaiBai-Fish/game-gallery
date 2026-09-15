@@ -22,7 +22,7 @@
     <NeutralLanguage>zh-CN</NeutralLanguage>
     <Product>GameGallery</Product>
     <AssemblyTitle>游戏截图图库</AssemblyTitle>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <NoWarn>$(NoWarn);NU1900</NoWarn>
     <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
   </PropertyGroup>

@@ -13,19 +13,19 @@
 仓库只包含源码，`dist\` 下的二进制不入库，自己构建即可（见「从源码构建」）：
 
 ```powershell
-.\scripts\package-msi.ps1      # -> dist\GameGallery-0.1.1.msi
-.\scripts\package.ps1          # -> dist\GameGallery-0.1.1-portable.exe
+.\scripts\package-msi.ps1      # -> dist\GameGallery-0.1.2.msi
+.\scripts\package.ps1          # -> dist\GameGallery-0.1.2-portable.exe
 ```
 
-拿到 `GameGallery-0.1.1.msi` 后双击安装，也可以静默安装：
+拿到 `GameGallery-0.1.2.msi` 后双击安装，也可以静默安装：
 
 ```bat
-msiexec /i GameGallery-0.1.1.msi /qn
+msiexec /i GameGallery-0.1.2.msi /qn
 ```
 
 **不需要管理员权限**——这是 per-user 安装，程序装到 `%LOCALAPPDATA%\Programs\GameGallery`，卸载信息注册在当前用户下，会正常出现在「设置 → 应用 → 已安装的应用」里。安装完会创建开始菜单和桌面快捷方式。
 
-不想安装的话，用 `GameGallery-0.1.1-portable.exe`：双击运行，免安装、不写注册表。
+不想安装的话，用 `GameGallery-0.1.2-portable.exe`：双击运行，免安装、不写注册表。
 
 两种包都**自包含**：已经带上 .NET 8 和 Windows App SDK 运行时，目标机器不需要预装任何东西。
 
@@ -36,7 +36,7 @@ msiexec /i GameGallery-0.1.1.msi /qn
 「设置 → 应用 → 已安装的应用」里卸载，或者：
 
 ```bat
-msiexec /x GameGallery-0.1.1.msi /qn
+msiexec /x GameGallery-0.1.2.msi /qn
 ```
 
 卸载会删掉程序、快捷方式和注册表项，但**保留**缩略图缓存、收藏和设置（在 `%LOCALAPPDATA%\GameGallery`）。想一并清掉就手动删除那个目录。
@@ -52,7 +52,8 @@ msiexec /x GameGallery-0.1.1.msi /qn
 - 按文件名搜索
 - 截图文件夹有新文件时自动刷新，截完图回到软件就能看到
 - 浅色 / 深色 / 跟随系统主题
-- 设置里有**检查更新**：比对仓库上最新的发布 / 标签，发现新版本可一键打开发布页；同时显示当前版本号，并有更新日志入口
+- 设置里有**检查更新**：比对仓库上最新的发布 / 标签（都拿不到时退回 CHANGELOG），发现新版本可以「下载并安装」（核对哈希后运行安装程序）或打开发布页；同时显示当前版本号，并有更新日志入口
+- **单实例**：已经有窗口在运行时，再次启动只会把它切到前台（最小化会先还原），不会开出第二个窗口
 
 ### 大图查看器
 - **共享元素过渡**：双击缩略图时，图片从缩略图的位置和大小放大铺满窗口；关闭时再缩回它在网格里的缩略图
@@ -187,8 +188,8 @@ startup.log        启动日志与异常堆栈（排查问题用）
 .\scripts\build.ps1                 # 构建 Release（框架依赖，产物小）
 .\scripts\launch.ps1                # 构建并启动
 .\scripts\make-icon.ps1             # 由 installer\AppIcon.png 重新生成 installer\GameGallery.ico
-.\scripts\package-msi.ps1           # 生成 MSI 安装包  -> dist\GameGallery-0.1.1.msi
-.\scripts\package.ps1               # 生成免安装单文件 -> dist\GameGallery-0.1.1-portable.exe
+.\scripts\package-msi.ps1           # 生成 MSI 安装包  -> dist\GameGallery-0.1.2.msi
+.\scripts\package.ps1               # 生成免安装单文件 -> dist\GameGallery-0.1.2-portable.exe
 ```
 
 WiX 免安装版（不往系统里装任何东西，解压即用）：
@@ -239,7 +240,7 @@ src/GameGallery/
 │   ├── GameIconService.cs       复用 HoYoPlay 下载的游戏图标
 │   ├── AppStorage.cs            设置/收藏持久化 + 可移植回退
 │   ├── ShellInterop.cs          资源管理器、回收站、剪贴板、文件夹选择器
-│   └── UpdateService.cs         四路探测 GitHub 上的最新版本
+│   └── UpdateService.cs         五路探测最新版本、下载安装包并核对 hashes 分支的 SHA-256
 ├── Converters/Converters.cs     x:Bind 函数绑定用的静态辅助方法
 └── Assets/GameGallery.ico       由 installer\GameGallery.ico 复制而来，运行时窗口图标
 
@@ -289,7 +290,7 @@ scripts/
 .\scripts\verify-gallery.ps1 -Exe <exe> -DataDir <临时目录> -TestDir <临时目录>
 .\scripts\verify-real.ps1    -Exe <exe> -DataDir <临时目录>
 .\scripts\verify-icons.ps1   -Exe <exe> -DataDir <临时目录>
-.\scripts\verify-msi.ps1     -MsiPath dist\GameGallery-0.1.1.msi
+.\scripts\verify-msi.ps1     -MsiPath dist\GameGallery-0.1.2.msi
 ```
 
 > `verify-e2e.ps1` 会真的把 `-TestDir` 里的文件移到回收站，请只指向临时目录。
@@ -321,18 +322,25 @@ HoYoPlay 已经下载好的图标文件，找不到时回退到内置字体图�
 
 见 [CHANGELOG.md](CHANGELOG.md)。程序里「设置 → 检查更新」会比对仓库上最新的发布 / 标签，发现新版本时给出发布页入口。
 
-### 检查更新是怎么实现的
+### 检查更新 / 更新程序
 
-**没有**只用 `api.github.com`：它的未认证请求按出口 IP 限流（每小时 60 次），配额用尽时一律 403——实测本机出口 IP 就经常是 0（同一个出口后面可能有别的程序在刷），只用 API 的话按钮会时灵时不灵。所以按顺序探测四路，任何一路拿到版本号即可：
+版本号按**五路**探测，前四路是「正式发布 / 标签」，第五路是保底：
 
 1. `api.github.com/repos/<owner>/<repo>/releases/latest` —— 最理想，JSON，还能拿到发布页地址
 2. `api.github.com/repos/<owner>/<repo>/tags` —— 仓库还没有正式 Release 时的来源
 3. `github.com/<owner>/<repo>/releases/latest` 的 302 —— 有 Release 时 `Location` 指向 `/releases/tag/<tag>`，没有时指向 `/releases`；不受 API 配额限制
 4. `github.com/<owner>/<repo>/tags` 页面的 HTML —— 抓 `/releases/tag/<tag>` 链接，同样不受配额限制
+5. **`CHANGELOG.md` 里第一个 `## [x.y.z]` 标题** —— 保底：仓库既没发 Release 也没打 tag 时，前四路都拿不到东西，这一步兜住
 
-四路全失败时显示具体原因（403 / 超时 / 不可达），并保留「打开发布页」的手动出口。没有采用 `raw.githubusercontent.com`：它在部分网络下不可达。
+为什么不用一条：`api.github.com` 的未认证请求按出口 IP 限流（每小时 60 次），配额用尽时一律 403——实测本机出口 IP 就经常是 0（同一个出口后面可能有别的程序在刷）；`raw.githubusercontent.com` 在部分网络下不可达。第 5 路本身也做了三级回退（raw → github.com 的 blob 页面 → api），blob 页面里内嵌了文件原文，可以当纯文本解析。五路全失败时显示具体原因（403 / 超时 / 不可达），并保留「打开发布页」的手动出口。
 
-发布新版本时按顺序做四件事：改 `CHANGELOG.md` → 改 `src/GameGallery/GameGallery.csproj` 里的 `<Version>` → 打 tag → 推上去（可选：在 GitHub 上建一个 Release，第 1、3 路探测会更准）。
+**「下载并安装」是带哈希校验的**：从 Release 取 `GameGallery-<版本>.msi`，
+再取 `hashes` 分支下的 `<版本>.txt`（由发布工作流在推 tag 时自动写入，格式 `<sha256>  <文件名>`），
+两者不一致就**删掉安装包并拒绝安装**；拿不到清单也不会自动装，只给手动下载的出口。
+校验通过后用 `msiexec /i` 运行安装程序，本程序随即退出。
+
+发布新版本时按顺序做三件事：改 `CHANGELOG.md`（新增一节）→ 改 `src/GameGallery/GameGallery.csproj` 里的 `<Version>` → 打 tag 推上去。
+工作流会自动编译、建 Release、并把产物哈希写进 `hashes` 分支，不需要手工维护。
 
 ---
 
@@ -343,7 +351,7 @@ HoYoPlay 已经下载好的图标文件，找不到时回退到内置字体图�
 - 定位依赖 HoYoPlay 的状态库文件格式；如果米哈游改了 `gamedata.dat` 的结构，第 1 级会失效，但第 2、3 级和手动添加仍然可用。
 - 收藏按绝对路径保存，移动/重命名文件后失效。
 - 删除只走回收站，没有「彻底删除」选项。
-- 程序没有做单实例限制，可以同时开多个窗口。
+- 更新程序只处理 MSI：便携版不会自我替换，点「下载并安装」装的是 MSI 版（装到 `%LOCALAPPDATA%\Programs\GameGallery`）。
 
 ---
 

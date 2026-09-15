@@ -306,6 +306,12 @@
                                                     Click="OnCheckUpdateClick"
                                                     Content="检查更新" />
                                                 <Button
+                                                    x:Name="InstallUpdateButton"
+                                                    AutomationProperties.AutomationId="InstallUpdateButton"
+                                                    Click="OnInstallUpdateClick"
+                                                    Content="下载并安装"
+                                                    Visibility="Collapsed" />
+                                                <Button
                                                     x:Name="OpenReleaseButton"
                                                     AutomationProperties.AutomationId="OpenReleaseButton"
                                                     Click="OnOpenReleaseClick"
@@ -320,6 +326,13 @@
                                                 FontSize="12"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 TextWrapping="Wrap" />
+
+                                            <ProgressBar
+                                                x:Name="UpdateProgress"
+                                                AutomationProperties.AutomationId="UpdateProgress"
+                                                Height="4"
+                                                Maximum="100"
+                                                Visibility="Collapsed" />
                                         </StackPanel>
                                     </ScrollViewer>
                                 </Flyout>

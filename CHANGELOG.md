@@ -3,6 +3,22 @@
 本文件记录所有值得注意的改动。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.1.2] - 2026-09-15
+
+### 新增
+
+- **单实例限制**：已经有窗口在运行时，再次启动会把它切到前台（最小化时先还原），不再开第二个窗口
+- **更新程序**：设置 → 检查更新发现新版本后可以直接「下载并安装」——从 Release 下载 MSI，
+  与本仓库 `hashes` 分支里的 SHA-256 清单核对，**通过才运行安装程序**；不匹配会删掉安装包并拒绝安装
+- 发布工作流新增一步：推 tag 时自动算出本次产物的 SHA-256，写进 `hashes` 分支的 `<版本>.txt`
+
+### 变更
+
+- 版本号探测新增一条**保底**：前四路（API 的 releases/latest → API 的 tags →
+  github.com 的 releases/latest 跳转 → github.com 的 tags 页面）都拿不到时，
+  改从 `CHANGELOG.md` 的第一个 `## [x.y.z]` 标题读版本号。
+  仓库还没发 Release、也没打 tag 时这一步能兜住
+
 ## [0.1.1] - 2026-09-15
 
 ### 新增
@@ -45,5 +61,6 @@
 - 单文件便携版：双击运行，免安装、不写注册表
 - 两种包都自包含 .NET 8 与 Windows App SDK 运行时
 
+[0.1.2]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.0...0.1.1
 [0.1.0]: https://github.com/CaiBai-Fish/game-gallery/releases/tag/0.1.0

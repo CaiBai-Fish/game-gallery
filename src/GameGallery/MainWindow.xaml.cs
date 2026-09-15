@@ -59,6 +59,12 @@ public sealed partial class MainWindow : Window
     /// <summary>检查更新得到的发布页地址。</summary>
     private string? _releaseUrl;
 
+    /// <summary>检查更新发现的新版本号（去掉 v 前缀），用于「下载并安装」。</summary>
+    private string? _pendingVersion;
+
+    /// <summary>Release 上的原始标签（可能是 v0.1.2），拼下载地址时要用它。</summary>
+    private string? _pendingTag;
+
     /// <summary>右键菜单作用的那一张照片（弹出菜单里拿不到 DataContext，必须在这里记下来）。</summary>
     private PhotoItem? _contextItem;
 
@@ -1328,7 +1334,7 @@ public sealed partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------------
-    // 检查更新
+    // 检查更新 / 更新程序
     // ------------------------------------------------------------------
 
     private void OnCheckUpdateClick(object sender, RoutedEventArgs e) => _ = CheckForUpdatesAsync();
@@ -1339,6 +1345,7 @@ public sealed partial class MainWindow : Window
         _checkingUpdate = true;
 
         CheckUpdateButton.IsEnabled = false;
+        InstallUpdateButton.Visibility = Visibility.Collapsed;
         OpenReleaseButton.Visibility = Visibility.Collapsed;
         UpdateStatusText.Text = "正在检查…";
 
@@ -1347,12 +1354,25 @@ public sealed partial class MainWindow : Window
             var result = await UpdateService.CheckAsync();
 
             _releaseUrl = result.Url;
+            _pendingVersion = null;
+            _pendingTag = null;
             UpdateStatusText.Text = result.Message;
 
-            // 有新版、或者压根没查出来的时候，都给一个手动出口。
-            OpenReleaseButton.Visibility = result.Outcome is UpdateCheckOutcome.UpdateAvailable or UpdateCheckOutcome.Unknown
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            switch (result.Outcome)
+            {
+                case UpdateCheckOutcome.UpdateAvailable:
+                    _pendingVersion = result.LatestVersion;
+                    _pendingTag = result.LatestTag;
+                    InstallUpdateButton.Content = $"下载并安装 {result.LatestVersion}";
+                    InstallUpdateButton.Visibility = Visibility.Visible;
+                    OpenReleaseButton.Visibility = Visibility.Visible;
+                    break;
+
+                case UpdateCheckOutcome.Unknown:
+                    // 没查出来的时候至少给一个手动出口
+                    OpenReleaseButton.Visibility = Visibility.Visible;
+                    break;
+            }
         }
         catch (Exception ex)
         {
@@ -1365,6 +1385,69 @@ public sealed partial class MainWindow : Window
         {
             CheckUpdateButton.IsEnabled = true;
             _checkingUpdate = false;
+        }
+    }
+
+    private void OnInstallUpdateClick(object sender, RoutedEventArgs e) => _ = InstallUpdateAsync();
+
+    /// <summary>
+    /// 下载 → 核对 hashes 分支里的 SHA-256 → 通过才运行安装程序，然后退出本程序。
+    /// 哈希不匹配时安装包会被删掉并且不安装（UpdateService 里做的）。
+    /// </summary>
+    private async Task InstallUpdateAsync()
+    {
+        var version = _pendingVersion;
+        if (version is null || _checkingUpdate) return;
+
+        var confirmed = await ConfirmAsync(
+            $"将下载 {version} 的安装包（约 52 MB），核对文件哈希通过后运行安装程序。\n\n" +
+            "安装过程中本程序会退出，安装完成后可以从开始菜单重新打开。\n\n是否继续？",
+            "下载并安装");
+
+        if (!confirmed) return;
+
+        _checkingUpdate = true;
+        InstallUpdateButton.IsEnabled = false;
+        UpdateProgress.Value = 0;
+        UpdateProgress.Visibility = Visibility.Visible;
+
+        try
+        {
+            var progress = new Progress<double>(fraction =>
+            {
+                UpdateProgress.Value = fraction * 100;
+                UpdateStatusText.Text = $"正在下载 {version}… {fraction * 100:F0}%";
+            });
+
+            var path = await UpdateService.DownloadInstallerAsync(version, _pendingTag, progress);
+
+            UpdateStatusText.Text = $"哈希校验通过，正在启动安装程序…";
+
+            if (!UpdateService.RunInstaller(path))
+            {
+                UpdateStatusText.Text = $"没能启动安装程序，安装包已经下载到：{path}";
+                return;
+            }
+
+            App.Log($"更新：已启动 {path} 的安装程序，本程序退出");
+            Close();
+        }
+        catch (UpdateVerificationException ex)
+        {
+            // 文件已经被删掉了，这里只报告
+            App.Log("更新：哈希校验未通过 — " + ex.Message);
+            UpdateStatusText.Text = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            App.Log("更新失败：" + ex);
+            UpdateStatusText.Text = $"更新失败：{ex.Message}";
+        }
+        finally
+        {
+            _checkingUpdate = false;
+            InstallUpdateButton.IsEnabled = true;
+            UpdateProgress.Visibility = Visibility.Collapsed;
         }
     }
 
