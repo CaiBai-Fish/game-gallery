@@ -9,6 +9,7 @@ param(
     [switch]$SkipE2e,
     [switch]$SkipReal,
     [switch]$SkipMsi,
+    [switch]$UpdateE2e,          # 额外跑更新流程端到端（需联网、数分钟）
     [string]$MsiPath
 )
 
@@ -33,7 +34,8 @@ $plan = @(
     @{ Name = 'verify-gallery'; Skip = $false; Args = @('-Exe', $exe, '-DataDir', $data, '-TestDir', $test) },
     @{ Name = 'verify-e2e';     Skip = [bool]$SkipE2e; Args = @('-Exe', $exe, '-DataDir', $data, '-TestDir', $test) },
     @{ Name = 'verify-real';    Skip = [bool]$SkipReal; Args = @('-Exe', $exe, '-DataDir', $data) },
-    @{ Name = 'verify-msi';     Skip = [bool]$SkipMsi; Args = @('-MsiPath', $MsiPath) }
+    @{ Name = 'verify-msi';     Skip = [bool]$SkipMsi; Args = @('-MsiPath', $MsiPath) },
+    @{ Name = 'verify-update-from-msi'; Skip = (-not $UpdateE2e); Args = @() }
 )
 
 $results = New-Object System.Collections.Generic.List[object]
