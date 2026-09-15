@@ -3,6 +3,17 @@
 本文件记录所有值得注意的改动。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.2] - 2026-09-15
+
+### 修复
+
+- **单文件便携版启动即崩**：崩在 `Microsoft.UI.Xaml.Application.Start`，异常是
+  `COMException (0x80040111)：ClassFactory 无法供应请求的类`——自包含 + 单文件组合下原生组件没有被解包，
+  WinRT 激活找不到类。加 `IncludeAllContentForSelfExtract=true`，让它启动前把整套文件解到
+  `%TEMP%\.net\...` 再运行（实测 4 秒内出窗口）。**1.0.0 / 1.0.1 的 `-portable.exe` 都有这个问题**
+- **单文件便携版的"程序目录"取错**：它把自己解压到 `%TEMP%` 运行，之前拿 `AppContext.BaseDirectory`
+  当程序目录，会把自动更新装进临时目录；改为用可执行文件所在目录（`Environment.ProcessPath`）。
+  这也会影响"程序目录不可写"的判断
 ## [1.0.1] - 2026-09-15
 
 ### 新增
@@ -102,8 +113,9 @@
 - 两种包都自包含 .NET 8 与 Windows App SDK 运行时
 
 [1.0.0]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.2...1.0.0
+[1.0.2]: https://github.com/CaiBai-Fish/game-gallery/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/CaiBai-Fish/game-gallery/compare/1.0.0...1.0.1
-[未发布]: https://github.com/CaiBai-Fish/game-gallery/compare/1.0.1...main
+[未发布]: https://github.com/CaiBai-Fish/game-gallery/compare/1.0.2...main
 [0.1.2]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/CaiBai-Fish/game-gallery/compare/0.1.0...0.1.1
 [0.1.0]: https://github.com/CaiBai-Fish/game-gallery/releases/tag/0.1.0

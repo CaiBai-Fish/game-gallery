@@ -76,6 +76,9 @@ WinUI 3 的具体实现见 `src/GameGallery/Services/UpdateService.cs` 与 `.git
   安装版不传 `/DIR`，交给安装程序用它记录的目录——避免同一版本出现两个安装位置。
   判据用**卸载注册表项**（Inno 的 `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\<AppId>_is1` 的
   `InstallLocation`），**不要**用"目录里有没有 `unins000.exe`"（便携目录被解压过安装包时会误判）。
+- **"应用当前目录"要用可执行文件所在目录，不能用 `AppContext.BaseDirectory`**：单文件自解压形态下
+  BaseDirectory 指的是 `%TEMP%\.net\...` 那个解压目录，拿它当程序目录会往临时目录里装一整套文件。
+  取 `Path.GetDirectoryName(Environment.ProcessPath)`。
 - 哈希比较用**实测重算**的 SHA-256（流式读取，别整文件读进内存），不匹配时必须先删文件再报错。
 - 下载地址用原始 tag，文件名用归一化版本号——两者别混用，否则 404。
 - 拿不到清单也不装：`hashes` 分支缺失意味着"无法验证"，不是"可以放行"。
@@ -133,6 +136,7 @@ Inno 相关的注意事项：
 | 发布链路端到端 | 推一个 tag，等 CI 绿，检查 Release 三个附件与 `hashes` 分支新增的 `<版本>.txt` |
 | tag 与版本号不一致会失败 | 故意打一个与工程版本不同的 tag（可在本地用 `workflow_dispatch` 逻辑验证） |
 | MSI 版本号正确 | 用 WindowsInstaller COM 读 `Property` 表的 `ProductVersion`，别只看文件名 |
+| 单文件便携版真的能启动 | **下载发布出来的那个 exe 并实际跑起来看窗口**：自包含 + 单文件曾出现 `COMException 0x80040111`（WinRT 激活失败）启动即崩，必须加 `IncludeAllContentForSelfExtract=true` |
 
 用 PowerShell 复算哈希做交叉验证的最小命令：
 

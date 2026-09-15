@@ -1376,7 +1376,7 @@ public sealed partial class MainWindow : Window
         if (!UpdateService.CanWriteProgramDirectory())
         {
             UpdateStatusText.Text =
-                $"当前程序目录不可写（{AppContext.BaseDirectory}），装了也覆盖不了，请用「打开发布页」手动下载 {version}。";
+                $"当前程序目录不可写（{UpdateService.ProgramDirectory}），装了也覆盖不了，请用「打开发布页」手动下载 {version}。";
             OpenReleaseButton.Visibility = Visibility.Visible;
             return;
         }
@@ -1398,7 +1398,7 @@ public sealed partial class MainWindow : Window
 
             var installed = UpdateService.GetInstalledLocation();
             UpdateStatusText.Text = installed is null
-                ? $"校验通过，正在安装回原目录（{AppContext.BaseDirectory}）…"
+                ? $"校验通过，正在安装回原目录（{UpdateService.ProgramDirectory}）…"
                 : $"校验通过，正在安装到 {installed}…";
 
             if (!UpdateService.StartInstallerScript(path))

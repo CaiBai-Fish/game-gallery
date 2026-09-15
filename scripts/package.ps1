@@ -11,7 +11,7 @@
     单文件只用于这个免安装版：一个 exe 双击就能用。
 #>
 param(
-    [string]$Version = '1.0.1',
+    [string]$Version = '1.0.2',
     [switch]$SkipBuild
 )
 
@@ -64,6 +64,7 @@ if (-not $SkipBuild) {
         -p:SelfContained=true `
         -p:WindowsAppSDKSelfContained=true `
         -p:IncludeNativeLibrariesForSelfExtract=true `
+        -p:IncludeAllContentForSelfExtract=true `
         -p:RuntimeIdentifier=win-x64 `
         -p:PublishDir="$publish\" `
         -v:m -nologo

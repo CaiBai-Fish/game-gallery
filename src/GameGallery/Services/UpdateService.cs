@@ -508,6 +508,19 @@ public static class UpdateService
     // ------------------------------------------------------------------
 
     /// <summary>
+    /// 用户看到的"程序目录"。
+    ///
+    /// **不能用 <see cref="AppContext.BaseDirectory"/>**：单文件便携版会把自己解压到
+    /// <c>%TEMP%\.net\...</c> 再运行，BaseDirectory 指的是那个解压目录，
+    /// 拿它当程序目录会往临时目录里装一整套文件。可执行文件路径（<see cref="Environment.ProcessPath"/>）
+    /// 才是用户实际放程序的地方。
+    /// </summary>
+    public static string ProgramDirectory =>
+        Path.GetDirectoryName(Environment.ProcessPath ?? string.Empty) is { Length: > 0 } directory
+            ? directory.TrimEnd('\\')
+            : AppContext.BaseDirectory.TrimEnd('\\');
+
+    /// <summary>
     /// 已安装版本的目录；**免安装形态返回 null**。
     /// 判据是 Inno Setup 写的卸载注册表项（不要用"目录里有没有 unins000.exe"——
     /// 免安装目录被解压过安装包时会误判成安装版）。
@@ -532,7 +545,7 @@ public static class UpdateService
     {
         try
         {
-            var probe = Path.Combine(AppContext.BaseDirectory, ".write-probe");
+            var probe = Path.Combine(ProgramDirectory, ".write-probe");
             File.WriteAllText(probe, "probe");
             File.Delete(probe);
             return true;
@@ -555,8 +568,8 @@ public static class UpdateService
     {
         try
         {
-            var currentExe = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, $"{AppFileNamePrefix}.exe");
-            var baseDirectory = AppContext.BaseDirectory.TrimEnd('\\');
+            var currentExe = Environment.ProcessPath ?? Path.Combine(ProgramDirectory, $"{AppFileNamePrefix}.exe");
+            var baseDirectory = ProgramDirectory;
             var installed = GetInstalledLocation();
 
             // 免安装 → 装回原处；安装版 → 交给 Inno 记录的目录

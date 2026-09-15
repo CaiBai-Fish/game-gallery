@@ -14,7 +14,7 @@
     CI 上用 `choco install innosetup -y`（装在 Program Files (x86)）。两个位置都会找。
 #>
 param(
-    [string]$Version = '1.0.1',
+    [string]$Version = '1.0.2',
     [string]$PublishDir = '',
     [switch]$SkipBuild
 )
