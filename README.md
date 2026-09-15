@@ -1,5 +1,7 @@
 # 游戏截图图库
 
+[![Release](https://github.com/CaiBai-Fish/game-gallery/actions/workflows/release.yml/badge.svg)](https://github.com/CaiBai-Fish/game-gallery/actions/workflows/release.yml)
+
 一个 Windows 桌面小工具，用来在同一个窗口里快速浏览 **原神**、**崩坏：星穹铁道**、**绝区零**（顺带支持 **崩坏3**）的游戏截图。
 
 装完即用：自动找到游戏安装目录和截图文件夹，不需要任何手动配置。
@@ -201,6 +203,20 @@ Expand-Archive wix.zip -DestinationPath build\tools\wix
 > 只随 Visual Studio 的 UWP 相关组件安装。`dotnet build` 用的 .NET SDK 自带 MSBuild 找不到它，会以 `MSB4062` 失败。
 > `build.ps1` 会自己去找 Visual Studio 的 `MSBuild.exe`（优先 vswhere，其次常见安装路径）。
 
+> **`.ps1` 里的中文必须配 UTF-8 BOM。**
+> 没有 BOM 时 Windows PowerShell 会按系统 ANSI 代码页（简中是 GBK）读脚本，中文注释和字符串会变成乱码，
+> 轻则文案出错，重则字符串终止符失配、整个脚本解析失败。所有脚本都存成「UTF-8 with BOM」。
+
+### 自动发布
+
+`.github/workflows/release.yml`：推 `x.y.z`（或 `vx.y.z`）格式的 tag 时自动在 `windows-latest` 上编译，
+生成 MSI 与便携版，取 `CHANGELOG.md` 里对应小节作为发布说明，建 Release 并把两个安装包作为附件传上去。
+手动触发（Actions → Release → Run workflow）只编译并把产物挂到 artifacts，不发 Release。
+
+工作流里有两处是给 WinUI 3 准备的：一是用 vswhere 定位 **Visual Studio 的 MSBuild**（原因见上），
+二是先解压 WiX 3 免安装二进制到 `build\tools\wix`。另外它会校验 tag 与 `csproj` 里的 `<Version>` 一致，
+不一致直接失败——避免打出一个版本号和 tag 对不上的包。
+
 > **为什么 MSI 里不用单文件版？**
 > MSI 本来就会把几百个文件收进 CAB 并按文件逐个安装，用单文件毫无好处，反而会让程序**每次启动都先把自己解压到临时目录**。
 > 所以 MSI 装的是「自包含 + 常规多文件」的发布目录（488 个文件），清单由 WiX 自带的 `heat.exe` 自动采集，新增依赖不用改脚本。
@@ -289,6 +305,15 @@ scripts/
 - **卡死回归**读进程累计 CPU 时间：曾经有个无上限的自我重入队导致 UI 线程忙等，卡死时累计烧掉 135 秒 CPU，现在整轮测试的增量在 1 秒以内。
 - **导航栏图标**把「用真实图标」和「强制字体图标」两次渲染的同一区域逐像素比对：4 个游戏标签页各有 44–49 个像素不同，而字体图标的基线是 0。
 - **窗口图标**不能只看 EXE 资源：那只能证明文件图标对。套件从源图取饱和度最高的高频色（`48,134,253`），再对标题栏图标区域和任务栏按钮的实拍区域做匹配（实测 55 / 112 个像素命中），Windows App SDK 的默认图标是纯蓝 `0,0,255`，与特征色相差 142，不会误判。
+
+---
+
+## 许可
+
+[MIT](LICENSE)。
+
+游戏名称与图标的相关权利归米哈游所有。本程序**不重新分发**任何游戏美术资源：导航栏图标是直接读取你本机
+HoYoPlay 已经下载好的图标文件，找不到时回退到内置字体图标（见「图标」一节）。
 
 ---
 

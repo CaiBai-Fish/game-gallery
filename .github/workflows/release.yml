@@ -1,0 +1,133 @@
+name: Release
+
+# 推 tag 触发：编译 → 生成 MSI 与便携版 → 建 Release 并附上两个安装包。
+# 也可以手动运行（Actions 页面 → Run workflow）：只编译并把产物挂到 artifacts，不发 Release。
+on:
+  push:
+    tags:
+      - '[0-9]*.[0-9]*.[0-9]*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+          cache: true
+          cache-dependency-path: src/GameGallery/GameGallery.csproj
+
+      # WinUI 3 必须用 Visual Studio 的 MSBuild：resources.pri 的生成任务
+      # （Microsoft.Build.Packaging.Pri.Tasks）只随 VS 的 UWP 组件提供，
+      # dotnet build 用的 MSBuild 找不到它，会以 MSB4062 失败。
+      - name: 定位 Visual Studio 的 MSBuild
+        id: msbuild
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw 'vswhere.exe 不存在，镜像里应该带有 Visual Studio。' }
+
+          $found = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe'
+          $msbuild = @($found) | Where-Object { $_ -and (Test-Path -LiteralPath $_.Trim()) } | Select-Object -First 1
+          if (-not $msbuild) { throw '找不到 MSBuild.exe。' }
+
+          $msbuild = $msbuild.Trim()
+          Write-Host "MSBuild: $msbuild"
+          "path=$msbuild" >> $env:GITHUB_OUTPUT
+
+      - name: 解析版本号（tag 必须与 csproj 里的 <Version> 一致）
+        id: ver
+        shell: pwsh
+        run: |
+          $csproj = Get-Content 'src/GameGallery/GameGallery.csproj' -Raw
+          if ($csproj -notmatch '<Version>([^<]+)</Version>') { throw 'csproj 里找不到 <Version>' }
+          $projectVersion = $Matches[1].Trim()
+
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            $version = '${{ github.ref_name }}' -replace '^[vV]', ''
+            if ($version -ne $projectVersion) {
+              throw "tag 是 $version，但 csproj 里的版本是 $projectVersion。先把 <Version> 改成 $version 再打 tag。"
+            }
+            Write-Host "tag 版本：$version（与 csproj 一致）"
+            "manual=false" >> $env:GITHUB_OUTPUT
+          } else {
+            $version = $projectVersion
+            Write-Host "手动运行，使用 csproj 里的版本：$version（不会发 Release）"
+            "manual=true" >> $env:GITHUB_OUTPUT
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: 准备 WiX 3（免安装二进制，解压即用）
+        shell: pwsh
+        run: |
+          $zip = 'build\wix.zip'
+          Invoke-WebRequest 'https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip' -OutFile $zip
+          Expand-Archive -LiteralPath $zip -DestinationPath 'build\tools\wix' -Force
+          Get-ChildItem 'build\tools\wix' -Filter '*.exe' | Select-Object -First 3 -ExpandProperty Name
+
+      - name: 构建 MSI 安装包
+        shell: pwsh
+        run: |
+          .\scripts\package-msi.ps1 -Version '${{ steps.ver.outputs.version }}'
+
+      - name: 构建便携单文件版
+        shell: pwsh
+        run: |
+          .\scripts\package.ps1 -Version '${{ steps.ver.outputs.version }}'
+
+      - name: 列出产物
+        shell: pwsh
+        run: |
+          Get-ChildItem dist | Format-Table Name, @{ n = 'MB'; e = { [math]::Round($_.Length / 1MB, 1) } }
+
+      - name: 从 CHANGELOG 提取本版本的发布说明
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          $version = '${{ steps.ver.outputs.version }}'
+          $changelog = Get-Content 'CHANGELOG.md' -Raw -Encoding UTF8
+
+          # 抓 "## [x.y.z] ..." 到下一个二级标题之前
+          $pattern = '(?ms)^##\s*\[?v?' + [regex]::Escape($version) + '\]?.*?(?=^##\s|\z)'
+          $match = [regex]::Match($changelog, $pattern)
+
+          $notes = if ($match.Success) {
+            $match.Value.Trim()
+          } else {
+            "CHANGELOG.md 里没有 $version 这一节。完整更新日志：https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md"
+          }
+
+          Set-Content -LiteralPath 'build\release-notes.md' -Value $notes -Encoding UTF8
+          Write-Host $notes
+
+      - name: 上传构建产物（手动运行时查看用）
+        uses: actions/upload-artifact@v4
+        with:
+          name: GameGallery-${{ steps.ver.outputs.version }}${{ steps.ver.outputs.manual == 'true' && '-manual' || '' }}
+          path: |
+            dist/*.msi
+            dist/*-portable.exe
+          if-no-files-found: error
+
+      - name: 创建 Release 并附上安装包
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create '${{ github.ref_name }}' `
+            'dist/GameGallery-${{ steps.ver.outputs.version }}.msi' `
+            'dist/GameGallery-${{ steps.ver.outputs.version }}-portable.exe' `
+            --title "游戏截图图库 ${{ steps.ver.outputs.version }}" `
+            --notes-file 'build\release-notes.md'

@@ -10,6 +10,9 @@
 - 设置面板新增**检查更新**：比对 GitHub 仓库上的最新发布 / 标签与当前版本，发现新版本可一键打开发布页
 - 设置面板显示当前版本号，并提供**更新日志**入口
 - 新增本更新日志
+- 新增 `LICENSE`（MIT）
+- 新增 GitHub Actions 工作流 `release.yml`：推送 `x.y.z` 格式的 tag 时自动编译并发布 Release（MSI + 便携版）；
+  手动触发只编译并把产物挂到 artifacts。发布前会校验 tag 与 `csproj` 里的 `<Version>` 是否一致
 
 ### 说明
 

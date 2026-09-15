@@ -32,6 +32,30 @@ $publish = if ($PublishDir) { $PublishDir } else { Join-Path $buildDir 'publish-
 function Step([string]$text) { Write-Host ''; Write-Host "== $text" -ForegroundColor Cyan }
 function Fail([string]$text) { Write-Host $text -ForegroundColor Red; exit 1 }
 
+# WinUI 3 必须用 Visual Studio 的 MSBuild（resources.pri 的生成任务只随 VS 的 UWP 组件提供）。
+# 先问 vswhere，问不到再退回到常见安装路径——CI 机器上 VS 的版本/位置和本机不一样。
+function Find-MSBuild {
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+    if (Test-Path -LiteralPath $vswhere) {
+        try {
+            $found = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' 2>$null
+            foreach ($f in @($found)) { if ($f -and (Test-Path -LiteralPath $f.Trim())) { return $f.Trim() } }
+        } catch { }
+    }
+
+    foreach ($p in @(
+            'D:\Visual Studio\MSBuild\Current\Bin\MSBuild.exe',
+            'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe',
+            'C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe',
+            'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe',
+            'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
+        )) {
+        if (Test-Path -LiteralPath $p) { return $p }
+    }
+
+    return $null
+}
+
 # ---------------------------------------------------------------- WiX 检查
 $candle = Join-Path $wixDir 'candle.exe'
 $light = Join-Path $wixDir 'light.exe'
@@ -55,17 +79,9 @@ foreach ($tool in @($candle, $light, $heat)) {
 if (-not $SkipBuild -or -not (Test-Path -LiteralPath (Join-Path $publish 'GameGallery.exe'))) {
     Step '发布自包含多文件版本'
 
-    $msbuild = $null
-    foreach ($p in @(
-            'D:\Visual Studio\MSBuild\Current\Bin\MSBuild.exe',
-            'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe',
-            'C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe',
-            'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe',
-            'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
-        )) {
-        if (Test-Path -LiteralPath $p) { $msbuild = $p; break }
-    }
-    if (-not $msbuild) { Fail '找不到 MSBuild.exe。' }
+    $msbuild = Find-MSBuild
+    if (-not $msbuild) { Fail '找不到 MSBuild.exe（vswhere 和常见安装路径都试过了）。' }
+    Write-Host "   MSBuild: $msbuild"
 
     Get-Process -Name 'GameGallery' -ErrorAction SilentlyContinue | Stop-Process -Force
     Start-Sleep -Milliseconds 800
@@ -98,8 +114,8 @@ Copy-Item -LiteralPath (Join-Path $root 'installer\GameGallery.zh-CN.wxl') -Dest
 Copy-Item -LiteralPath (Join-Path $root 'installer\GameGallery.ico') -Destination $stageDir -Force
 
 # 许可页用的 RTF：中文全部写成 \uNNNN? 转义，避免 RTF 编码问题
-$licenseText = @'
-游戏截图图库 0.1.0
+$licenseText = @"
+游戏截图图库 $Version
 
 本软件用于在本地浏览你自己的游戏截图（原神 / 崩坏：星穹铁道 / 绝区零 / 崩坏3）。
 
@@ -107,7 +123,7 @@ $licenseText = @'
 - 本软件只读取你本机的截图文件；删除操作只会把文件移到回收站，可从回收站还原。
 - 游戏名称与图标的相关权利归米哈游所有；标签页图标直接读取你本机 HoYoPlay 已下载的图标文件。
 - 卸载时不会删除你的缩略图缓存、收藏与设置（位于 %LOCALAPPDATA%\GameGallery），需要时可自行清理。
-'@
+"@
 
 function ConvertTo-Rtf([string]$text) {
     $sb = New-Object System.Text.StringBuilder
