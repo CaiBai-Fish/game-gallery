@@ -111,7 +111,7 @@ foreach ($t in ($texts | Select-Object -First 18)) {
     Write-Host ("    - {0}" -f $short)
 }
 if ($texts.Count -lt 10) { $fails.Add("只渲染出 $($texts.Count) 个文本片段，看起来没内容") }
-if (-not ($texts -match '^\d+\.\d+\.\d+')) { $fails.Add('没有渲染出任何版本号标题（形如 0.1.2）') }
+if (-not ($texts -match '^\d+\.\d+\.\d+')) { $fails.Add('没有渲染出任何版本号标题（形如 1.0.0）') }
 
 $links = @($descendants | Where-Object { $_.Current.ControlType -eq $CT::Hyperlink })
 Write-Host ("  链接（[文本](url) 解析结果）：{0} 个" -f $links.Count)

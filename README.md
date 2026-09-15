@@ -13,19 +13,19 @@
 仓库只包含源码，`dist\` 下的二进制不入库，自己构建即可（见「从源码构建」）：
 
 ```powershell
-.\scripts\package-msi.ps1      # -> dist\GameGallery-0.1.2.msi
-.\scripts\package.ps1          # -> dist\GameGallery-0.1.2-portable.exe
+.\scripts\package-msi.ps1      # -> dist\GameGallery-1.0.0.msi
+.\scripts\package.ps1          # -> dist\GameGallery-1.0.0-portable.exe
 ```
 
-拿到 `GameGallery-0.1.2.msi` 后双击安装，也可以静默安装：
+拿到 `GameGallery-1.0.0.msi` 后双击安装，也可以静默安装：
 
 ```bat
-msiexec /i GameGallery-0.1.2.msi /qn
+msiexec /i GameGallery-1.0.0.msi /qn
 ```
 
 **不需要管理员权限**——这是 per-user 安装，程序装到 `%LOCALAPPDATA%\Programs\GameGallery`，卸载信息注册在当前用户下，会正常出现在「设置 → 应用 → 已安装的应用」里。安装完会创建开始菜单和桌面快捷方式。
 
-不想安装的话，用 `GameGallery-0.1.2-portable.exe`：双击运行，免安装、不写注册表。
+不想安装的话，用 `GameGallery-1.0.0-portable.exe`：双击运行，免安装、不写注册表。
 
 两种包都**自包含**：已经带上 .NET 8 和 Windows App SDK 运行时，目标机器不需要预装任何东西。
 
@@ -36,7 +36,7 @@ msiexec /i GameGallery-0.1.2.msi /qn
 「设置 → 应用 → 已安装的应用」里卸载，或者：
 
 ```bat
-msiexec /x GameGallery-0.1.2.msi /qn
+msiexec /x GameGallery-1.0.0.msi /qn
 ```
 
 卸载会删掉程序、快捷方式和注册表项，但**保留**缩略图缓存、收藏和设置（在 `%LOCALAPPDATA%\GameGallery`）。想一并清掉就手动删除那个目录。
@@ -189,8 +189,8 @@ startup.log        启动日志与异常堆栈（排查问题用）
 .\scripts\build.ps1                 # 构建 Release（框架依赖，产物小）
 .\scripts\launch.ps1                # 构建并启动
 .\scripts\make-icon.ps1             # 由 installer\AppIcon.png 重新生成 installer\GameGallery.ico
-.\scripts\package-msi.ps1           # 生成 MSI 安装包  -> dist\GameGallery-0.1.2.msi
-.\scripts\package.ps1               # 生成免安装单文件 -> dist\GameGallery-0.1.2-portable.exe
+.\scripts\package-msi.ps1           # 生成 MSI 安装包  -> dist\GameGallery-1.0.0.msi
+.\scripts\package.ps1               # 生成免安装单文件 -> dist\GameGallery-1.0.0-portable.exe
 ```
 
 WiX 免安装版（不往系统里装任何东西，解压即用）：
@@ -294,7 +294,7 @@ scripts/
 .\scripts\verify-gallery.ps1 -Exe <exe> -DataDir <临时目录> -TestDir <临时目录>
 .\scripts\verify-real.ps1    -Exe <exe> -DataDir <临时目录>
 .\scripts\verify-icons.ps1   -Exe <exe> -DataDir <临时目录>
-.\scripts\verify-msi.ps1     -MsiPath dist\GameGallery-0.1.2.msi
+.\scripts\verify-msi.ps1     -MsiPath dist\GameGallery-1.0.0.msi
 ```
 
 > `verify-e2e.ps1` 会真的把 `-TestDir` 里的文件移到回收站，请只指向临时目录。

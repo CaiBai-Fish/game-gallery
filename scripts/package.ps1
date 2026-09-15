@@ -11,7 +11,7 @@
     单文件只用于这个免安装版：一个 exe 双击就能用。
 #>
 param(
-    [string]$Version = '0.1.2',
+    [string]$Version = '1.0.0',
     [switch]$SkipBuild
 )
 

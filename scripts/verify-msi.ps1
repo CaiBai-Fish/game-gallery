@@ -55,7 +55,7 @@ Write-Output ("  Version      = " + $productVersion)
 Write-Output ("  Manufacturer = " + $manufacturer)
 Write-Output ("  大小         = " + [math]::Round((Get-Item -LiteralPath $MsiPath).Length / 1MB, 1) + " MB")
 Check "ProductName 正确" ($productName -eq $AppName) $productName
-Check "Version 正确" ($productVersion -eq '0.1.2') $productVersion
+Check "Version 正确" ($productVersion -eq '1.0.0') $productVersion
 Check "ProductCode 有效" ($productCode -match '^\{[0-9A-F-]{36}\}$') $productCode
 
 
