@@ -53,6 +53,12 @@ public sealed partial class MainWindow : Window
     private bool _loaded;
     private bool _dialogOpen;
 
+    /// <summary>正在检查更新（防止连点）。</summary>
+    private bool _checkingUpdate;
+
+    /// <summary>检查更新得到的发布页地址。</summary>
+    private string? _releaseUrl;
+
     /// <summary>右键菜单作用的那一张照片（弹出菜单里拿不到 DataContext，必须在这里记下来）。</summary>
     private PhotoItem? _contextItem;
 
@@ -92,6 +98,7 @@ public sealed partial class MainWindow : Window
         _currentTabKey = string.IsNullOrWhiteSpace(_settings.Current.LastGameKey) ? "all" : _settings.Current.LastGameKey;
 
         ApplySettingsToUi();
+        VersionText.Text = UpdateService.CurrentVersion;
         HookViewerEvents();
 
         // 导航栏开合只由布局驱动同步（不重建导航项）：见 OnNavLayoutUpdated。
@@ -1318,6 +1325,66 @@ public sealed partial class MainWindow : Window
     {
         AppStorage.EnsureCreated();
         ShellInterop.OpenFolder(AppStorage.RootDirectory);
+    }
+
+    // ------------------------------------------------------------------
+    // 检查更新
+    // ------------------------------------------------------------------
+
+    private void OnCheckUpdateClick(object sender, RoutedEventArgs e) => _ = CheckForUpdatesAsync();
+
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_checkingUpdate) return;
+        _checkingUpdate = true;
+
+        CheckUpdateButton.IsEnabled = false;
+        OpenReleaseButton.Visibility = Visibility.Collapsed;
+        UpdateStatusText.Text = "正在检查…";
+
+        try
+        {
+            var result = await UpdateService.CheckAsync();
+
+            _releaseUrl = result.Url;
+            UpdateStatusText.Text = result.Message;
+
+            // 有新版、或者压根没查出来的时候，都给一个手动出口。
+            OpenReleaseButton.Visibility = result.Outcome is UpdateCheckOutcome.UpdateAvailable or UpdateCheckOutcome.Unknown
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        catch (Exception ex)
+        {
+            App.Log("检查更新失败：" + ex);
+            UpdateStatusText.Text = $"检查更新失败：{ex.Message}";
+            _releaseUrl = UpdateService.ReleasesPageUrl;
+            OpenReleaseButton.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            CheckUpdateButton.IsEnabled = true;
+            _checkingUpdate = false;
+        }
+    }
+
+    private async void OnOpenReleaseClick(object sender, RoutedEventArgs e)
+        => await LaunchUrlAsync(_releaseUrl ?? UpdateService.ReleasesPageUrl);
+
+    private async void OnOpenChangelogClick(object sender, RoutedEventArgs e)
+        => await LaunchUrlAsync(UpdateService.ChangelogUrl);
+
+    private async Task LaunchUrlAsync(string url)
+    {
+        try
+        {
+            if (!await Launcher.LaunchUriAsync(new Uri(url)))
+                UpdateStatusText.Text = $"系统没有打开浏览器，地址：{url}";
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = $"打开链接失败：{ex.Message}（地址：{url}）";
+        }
     }
 
     // ------------------------------------------------------------------

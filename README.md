@@ -50,6 +50,7 @@ msiexec /x GameGallery-0.1.0.msi /qn
 - 按文件名搜索
 - 截图文件夹有新文件时自动刷新，截完图回到软件就能看到
 - 浅色 / 深色 / 跟随系统主题
+- 设置里有**检查更新**：比对仓库上最新的发布 / 标签，发现新版本可一键打开发布页；同时显示当前版本号，并有更新日志入口
 
 ### 大图查看器
 - **共享元素过渡**：双击缩略图时，图片从缩略图的位置和大小放大铺满窗口；关闭时再缩回它在网格里的缩略图
@@ -221,7 +222,8 @@ src/GameGallery/
 │   ├── ThumbnailService.cs      磁盘缩略图缓存 + 大图解码
 │   ├── GameIconService.cs       复用 HoYoPlay 下载的游戏图标
 │   ├── AppStorage.cs            设置/收藏持久化 + 可移植回退
-│   └── ShellInterop.cs          资源管理器、回收站、剪贴板、文件夹选择器
+│   ├── ShellInterop.cs          资源管理器、回收站、剪贴板、文件夹选择器
+│   └── UpdateService.cs         四路探测 GitHub 上的最新版本
 ├── Converters/Converters.cs     x:Bind 函数绑定用的静态辅助方法
 └── Assets/GameGallery.ico       由 installer\GameGallery.ico 复制而来，运行时窗口图标
 
@@ -287,6 +289,25 @@ scripts/
 - **卡死回归**读进程累计 CPU 时间：曾经有个无上限的自我重入队导致 UI 线程忙等，卡死时累计烧掉 135 秒 CPU，现在整轮测试的增量在 1 秒以内。
 - **导航栏图标**把「用真实图标」和「强制字体图标」两次渲染的同一区域逐像素比对：4 个游戏标签页各有 44–49 个像素不同，而字体图标的基线是 0。
 - **窗口图标**不能只看 EXE 资源：那只能证明文件图标对。套件从源图取饱和度最高的高频色（`48,134,253`），再对标题栏图标区域和任务栏按钮的实拍区域做匹配（实测 55 / 112 个像素命中），Windows App SDK 的默认图标是纯蓝 `0,0,255`，与特征色相差 142，不会误判。
+
+---
+
+## 更新日志
+
+见 [CHANGELOG.md](CHANGELOG.md)。程序里「设置 → 检查更新」会比对仓库上最新的发布 / 标签，发现新版本时给出发布页入口。
+
+### 检查更新是怎么实现的
+
+**没有**只用 `api.github.com`：它的未认证请求按出口 IP 限流（每小时 60 次），配额用尽时一律 403——实测本机出口 IP 就经常是 0（同一个出口后面可能有别的程序在刷），只用 API 的话按钮会时灵时不灵。所以按顺序探测四路，任何一路拿到版本号即可：
+
+1. `api.github.com/repos/<owner>/<repo>/releases/latest` —— 最理想，JSON，还能拿到发布页地址
+2. `api.github.com/repos/<owner>/<repo>/tags` —— 仓库还没有正式 Release 时的来源
+3. `github.com/<owner>/<repo>/releases/latest` 的 302 —— 有 Release 时 `Location` 指向 `/releases/tag/<tag>`，没有时指向 `/releases`；不受 API 配额限制
+4. `github.com/<owner>/<repo>/tags` 页面的 HTML —— 抓 `/releases/tag/<tag>` 链接，同样不受配额限制
+
+四路全失败时显示具体原因（403 / 超时 / 不可达），并保留「打开发布页」的手动出口。没有采用 `raw.githubusercontent.com`：它在部分网络下不可达。
+
+发布新版本时按顺序做四件事：改 `CHANGELOG.md` → 改 `src/GameGallery/GameGallery.csproj` 里的 `<Version>` → 打 tag → 推上去（可选：在 GitHub 上建一个 Release，第 1、3 路探测会更准）。
 
 ---
 

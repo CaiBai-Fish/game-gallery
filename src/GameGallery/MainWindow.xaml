@@ -276,6 +276,50 @@
                                                 <Button Click="OnClearThumbnailCacheClick" Content="清理缩略图缓存" />
                                                 <Button Click="OnOpenConfigFolderClick" Content="打开配置目录" />
                                             </StackPanel>
+
+                                            <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                                            <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="关于" />
+
+                                            <Grid ColumnSpacing="10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock
+                                                    Grid.Column="0"
+                                                    Width="80"
+                                                    VerticalAlignment="Center"
+                                                    Text="当前版本" />
+                                                <TextBlock
+                                                    x:Name="VersionText"
+                                                    Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    AutomationProperties.AutomationId="VersionText"
+                                                    Text="—" />
+                                            </Grid>
+
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Button
+                                                    x:Name="CheckUpdateButton"
+                                                    AutomationProperties.AutomationId="CheckUpdateButton"
+                                                    Click="OnCheckUpdateClick"
+                                                    Content="检查更新" />
+                                                <Button
+                                                    x:Name="OpenReleaseButton"
+                                                    AutomationProperties.AutomationId="OpenReleaseButton"
+                                                    Click="OnOpenReleaseClick"
+                                                    Content="打开发布页"
+                                                    Visibility="Collapsed" />
+                                                <Button Click="OnOpenChangelogClick" Content="更新日志" />
+                                            </StackPanel>
+
+                                            <TextBlock
+                                                x:Name="UpdateStatusText"
+                                                AutomationProperties.AutomationId="UpdateStatusText"
+                                                FontSize="12"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                TextWrapping="Wrap" />
                                         </StackPanel>
                                     </ScrollViewer>
                                 </Flyout>
